@@ -50,6 +50,8 @@ github.com/brickKit/erp-inventory/contract/v3 v3.0.0-alpha.2 h1:jhwwfWYna1lOqoem
 github.com/brickKit/erp-inventory/contract/v3 v3.0.0-alpha.2/go.mod h1:QAppFYsuFc6Jd2EI+yn4O+534dIf/4k7GnVq2MKibc8=
 github.com/brickKit/erp-purchase/contract/v3 v3.0.0-alpha.1 h1:CEKve26tI6aNhqqZtd3LJUogw92HjbtV7I+luoQwCyI=
 github.com/brickKit/erp-purchase/contract/v3 v3.0.0-alpha.1/go.mod h1:zPIOufxsFvTrvDxVjs3WKLI2V9dsxZJQ9DxHT2l6Wtg=
+github.com/brickKit/erp-purchase/contract/v3 v3.0.0-alpha.4 h1:bEc3v1aPkRcfhGt0OAw+MZaE+XEhtr1OSGQq76aeazc=
+github.com/brickKit/erp-purchase/contract/v3 v3.0.0-alpha.4/go.mod h1:zPIOufxsFvTrvDxVjs3WKLI2V9dsxZJQ9DxHT2l6Wtg=
 github.com/brickKit/infra-audit/contract/v3 v3.0.0-alpha.2 h1:0snoszyg1imd9WGsK7I2H0lGNM6CKDOoE06D2jn/4G4=
 github.com/brickKit/infra-audit/contract/v3 v3.0.0-alpha.2/go.mod h1:lNvJIGkwHYJd9bv/ngYiKal65x7/M7McyHOzCIKyTSQ=
 github.com/brickKit/mdm-currency/contract/v3 v3.0.0-alpha.2 h1:JPi0Z0Bj4ugdSoe4wQ21KCR3W/q2PkJd+nAf8Imlz8o=

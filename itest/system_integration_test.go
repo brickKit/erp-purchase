@@ -37,6 +37,7 @@ func (fx *fixture) systemSurface() {
 	assert.Equal(t, "goods", l.GetKind())
 	assert.Equal(t, "95", l.GetReceivedBaseQuantity())
 	assert.Equal(t, "12", l.GetOrderedQuantity())
+	assert.Equal(t, "144", l.GetOrderedBaseQuantity(), "12 BX of 12 EA")
 	assert.Equal(t, "BX", l.GetUnit())
 	assert.Equal(t, "100", l.GetUnitPrice())
 	assert.Equal(t, "CNY", l.GetCurrency())

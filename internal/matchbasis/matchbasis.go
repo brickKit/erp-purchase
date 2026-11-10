@@ -38,7 +38,7 @@ func Basis(m *core.Base, ctx context.Context, in *purchasev3.BasisRequest) (*pur
 			l.kind, l.product_id::text, l.unit, trim_scale(l.quantity)::text,
 			trim_scale(CASE WHEN l.kind = 'goods' THEN l.received_base_qty ELSE 0 END)::text,
 			trim_scale(l.accepted_qty)::text, trim_scale(l.accepted_amt)::text, trim_scale(l.unit_price)::text,
-			o.currency, o.state
+			o.currency, o.state, trim_scale(l.base_quantity)::text
 			FROM order_line l JOIN purchase_order o ON o.id = l.order_id
 			WHERE ($1::uuid IS NOT NULL AND l.order_id = $1::uuid) OR l.id = ANY($2::uuid[])
 			ORDER BY o.id, l.line_no`, nullable(in.GetOrderId()), lineIDs)
@@ -51,7 +51,7 @@ func Basis(m *core.Base, ctx context.Context, in *purchasev3.BasisRequest) (*pur
 			l := &purchasev3.BasisLine{}
 			if err := rows.Scan(&l.OrderId, &l.OrderLineId, &l.OrderRevision, &l.LegalEntityId, &l.SupplierId, &l.Kind,
 				&l.ProductId, &l.Unit, &l.OrderedQuantity, &l.ReceivedBaseQuantity, &l.AcceptedQuantity, &l.AcceptedAmount,
-				&l.UnitPrice, &l.Currency, &l.OrderState); err != nil {
+				&l.UnitPrice, &l.Currency, &l.OrderState, &l.OrderedBaseQuantity); err != nil {
 				rows.Close()
 				return err
 			}
