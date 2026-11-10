@@ -15,7 +15,8 @@
   "properties": {
     "fact_id": {
       "type": "string",
-      "format": "uuid"
+      "format": "uuid",
+      "description": "UUIDv5 of basis_fact_id (its text form) under the namespace 6c1b2e9a-5f0d-5a8e-9c3b-7e2f4a1d8b60: a consumer that holds the basis works out its withdrawal's ID and reads it back with FactService.Read (alpha.3)"
     },
     "basis_fact_id": {
       "type": "string",

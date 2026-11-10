@@ -332,7 +332,7 @@ func fail(m *core.Base, ctx context.Context, id, why string) error {
 				WHERE id = $1`, l.OrderLineID, l.BaseQuantity); err != nil {
 				return err
 			}
-			factID := ids.New().String()
+			factID := core.WithdrawalID(l.ID)
 			if err := core.Fact(m, ctx, tx, core.ValuationWithdrawn, factID, r.LegalEntityID, map[string]any{
 				"fact_id": factID, "basis_fact_id": l.ID, "receipt_id": id, "reason": why,
 				"recorded_at": canon.Time(time.Now())}); err != nil {

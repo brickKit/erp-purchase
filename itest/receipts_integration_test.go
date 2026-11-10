@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -104,6 +106,9 @@ func (fx *fixture) receipts() {
 	fx.fact(line, "erp.purchase_receipt.valuation_basis.v1")
 	withdrawn := fx.factWhere("erp.purchase_receipt.valuation_basis_withdrawn.v1", "basis_fact_id", line)
 	assert.Equal(t, failed["id"], withdrawn["receipt_id"])
+	// a consumer that has the basis and missed its withdrawal works out the withdrawal's ID from the basis' (the
+	// contract's UUIDv5 under the purchase namespace) and reads it back
+	assert.Equal(t, uuid.NewSHA1(uuid.MustParse(withdrawalNamespace), []byte(line)).String(), withdrawn["fact_id"])
 	o = fx.get("/api/purchase/orders/" + bid)
 	assert.Equal(t, "36", at(o, "lines", 0, "received_base_quantity"))
 	assert.Equal(t, "0", at(o, "lines", 0, "receiving_base_quantity"))
@@ -131,6 +136,10 @@ func (fx *fixture) receipts() {
 	l = fx.get("/api/purchase/receipts?state=failed&order_id=" + bid)
 	assert.Len(t, l["receipts"], 1, l)
 }
+
+// withdrawalNamespace is the contract's namespace of the withdrawals' IDs
+// (erp.purchase_receipt.valuation_basis_withdrawn.v1).
+const withdrawalNamespace = "6c1b2e9a-5f0d-5a8e-9c3b-7e2f4a1d8b60"
 
 func (fx *fixture) receive(order, line, boxes string) (int, map[string]any) {
 	return fx.alice.do("POST", "/api/purchase/orders/"+order+"/receipts", map[string]any{

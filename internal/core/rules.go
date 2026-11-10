@@ -18,6 +18,7 @@ import (
 	"github.com/brickKit/be-sdk-go/v3/identity"
 	"github.com/brickKit/be-sdk-go/v3/money"
 	apd "github.com/cockroachdb/apd/v3"
+	"github.com/google/uuid"
 )
 
 // The component's own reasons (the SDK's catalog has the shared ones).
@@ -172,6 +173,16 @@ func Per(a, b string, scale int32) string {
 	out, _, _ := apd.NewFromString(money.Format(&r, scale))
 	out.Reduce(out)
 	return out.Text('f')
+}
+
+// withdrawalNamespace is the UUIDv5 namespace of the withdrawals' IDs: the contract's
+// (erp.purchase_receipt.valuation_basis_withdrawn.v1), so a consumer that holds a basis works out its withdrawal's ID.
+var withdrawalNamespace = uuid.MustParse("6c1b2e9a-5f0d-5a8e-9c3b-7e2f4a1d8b60")
+
+// WithdrawalID is the ID of the withdrawal of the valuation basis basisID (protocol 05b): derived, not drawn, so it
+// can be read back with FactService.Read by one who never saw it.
+func WithdrawalID(basisID string) string {
+	return uuid.NewSHA1(withdrawalNamespace, []byte(basisID)).String()
 }
 
 // Fact publishes an incremental fact (protocol 05, common rules) in the transaction that made it, and keeps it for
