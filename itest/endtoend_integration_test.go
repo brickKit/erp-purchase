@@ -74,10 +74,10 @@ type fixture struct {
 	tr    events.Transport
 	rt    *runtime.Runtime // the member's runtime
 
-	le, le2, d1, d2, sup, blocked, screw, install string
-	year                                          string
-	// what one step leaves for the next: requisitions by letter
-	reqs map[string]map[string]any
+	le, le2, d1, d2, sup, blocked, screw, bolt, install, wh string
+	year                                                    string
+	// what one step leaves for the next: requisitions and orders by letter
+	reqs, orders map[string]map[string]any
 }
 
 func TestPurchaseEndToEnd(t *testing.T) {
@@ -85,6 +85,9 @@ func TestPurchaseEndToEnd(t *testing.T) {
 	fx.notInThisVersion()
 	fx.policies()
 	fx.requisitions()
+	fx.purchaseOrders()
+	fx.fromRequisitions()
+	fx.departments()
 }
 
 // start makes the world, the stand-ins and mdm/org's stream, then migrates and runs the member.
@@ -107,10 +110,12 @@ func start(t *testing.T) *fixture {
 
 	w.GrantAll(sectest.Bob, core.Definitions())
 	// two legal entities, Shanghai (code SH) and Beijing (code BJ, whose policy will ask for no approval), two
-	// departments of Shanghai, two suppliers (one suspended), a stocked product (12 EA a box) and a service
+	// departments of Shanghai, two suppliers (one suspended), two stocked products (screws 12 EA a box, bolts 10) and a
+	// service
 	fx := &fixture{t: t, ctx: ctx, w: w, admin: admin, le: ids.New().String(), le2: ids.New().String(), d1: ids.New().String(),
 		d2: ids.New().String(), sup: ids.New().String(), blocked: ids.New().String(), screw: ids.New().String(),
-		install: ids.New().String(), reqs: map[string]map[string]any{}}
+		install: ids.New().String(), bolt: ids.New().String(), wh: ids.New().String(), reqs: map[string]map[string]any{},
+		orders: map[string]map[string]any{}}
 	w.Grant(carol, sdkauthz.Segment{ResourceType: core.Requisitions, Operation: core.OpReqRead,
 		Atoms: map[string]sdkauthz.Atom{core.DimLegalEntity: {Kind: "in", Values: []string{fx.le2}},
 			core.DimDepartment: {Kind: "all"}, core.DimOwner: {Kind: "all"}},
@@ -131,6 +136,7 @@ func start(t *testing.T) *fixture {
 	serve(t, itProduct, w, core.Product, func(s *grpc.Server) {
 		p := &productStandIn{known: map[string]productInfoIT{
 			fx.screw:   {Code: "SCREW", Name: "螺丝", BaseUnit: "EA", Stocked: true, Box: "12"},
+			fx.bolt:    {Code: "BOLT", Name: "螺栓", BaseUnit: "EA", Stocked: true, Box: "10"},
 			fx.install: {Code: "INSTALL", Name: "安装", BaseUnit: "HUR"}}}
 		productv3.RegisterSourceServiceServer(s, p)
 		productv3.RegisterProductServiceServer(s, p)

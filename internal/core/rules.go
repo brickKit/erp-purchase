@@ -35,6 +35,9 @@ var (
 		"The currency does not exist or is not active")
 	ErrUnit = errs.Define(ID, "NO_CONVERSION", errs.FailedPrecondition, 409, errs.RetryNo,
 		"The unit does not convert to the product's base unit")
+	// PR06: a requisition line an order line is made from
+	ErrRequisition = errs.Define(ID, "REQUISITION_LINE_NOT_USABLE", errs.FailedPrecondition, 409, errs.RetryNo,
+		"The requisition line is not approved, is of another legal entity, product or unit, or has not that much left")
 	// PR03, PO04: an approver is not the one who submitted (by account)
 	ErrApprover = errs.Define(ID, "APPROVER_IS_SUBMITTER", errs.FailedPrecondition, 409, errs.RetryNo,
 		"The one who submitted it does not approve it")
@@ -139,6 +142,16 @@ func Emit(m *Base, ctx context.Context, tx db.Tx, typ, id string, version int64,
 	_, err := m.RT.Events.Emit(ctx, tx, Stream, events.Event{Type: typ, RecordID: id, Version: version,
 		Projection: events.Full, LegalEntity: legalEntity, Data: data})
 	return err
+}
+
+// Minus is a − b, exact (quantities and amounts are decimals with bounded places).
+func Minus(a, b string) string {
+	x, _, _ := apd.NewFromString(a)
+	y, _, _ := apd.NewFromString(b)
+	var r apd.Decimal
+	_, _ = apd.BaseContext.WithPrecision(80).Sub(&r, x, y)
+	r.Reduce(&r)
+	return r.Text('f')
 }
 
 // Times is a × b rounded half away from zero to scale places.

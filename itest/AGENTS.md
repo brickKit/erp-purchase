@@ -18,12 +18,14 @@
 | `unsupported_integration_test.go` | `notInThisVersion` | 契约里有、本版不做的路由答“能力不支持” | D75 | 入口 `purchase/module.go` |
 | `policies_integration_test.go` | `policies` | 政策的起始值、按版本设置（旧版本被拒）、格式不对的值、看不见答 404；北京设成不要审批 | PR02、PO03 的前提 | `policies` |
 | `requisitions_integration_test.go` | `requisitions` | 申请：新建（产品不可采购、单位不能换算、别的法人的部门被拒）、按版本修改、提交、提交人不能批准、批准再批准、驳回要原因、三种状态下取消、北京提交即批准；看不见答 404，列表按状态与单号，只看北京的人只列北京的 | PR01–PR05 | `requisitions`、`policies`、`orgunits` |
+| `orders_integration_test.go` | `purchaseOrders`、`fromRequisitions` | 订单：新建（供应商暂停、币种不认识、库存物资行没仓库被拒）、按版本修改、提交、驳回要原因、提交人不能批准、修订（保留行、改单价与数量、换供应商或换产品被拒）、北京提交即批准、关闭、三种状态下取消；列表按供应商、状态与单号。申请行转订单行：取用、草稿改数量、超出被拒、全部转完关闭、取消订单退回后重开、不能用的申请行 | PO01–PO06、PO10、PO11；PR05、PR06 | `orders`、`requisitions` |
+| `departments_integration_test.go` | `departments`、`laterOrgEvents` | 按部门维度读订单与申请；部门移到另一部门之下，它们跟着走；不认识的动作标为不完整并补取，同一流上的法人不是部门 | 安全 07；P6.33、PJ36 | `orgunits`、`orders`、`requisitions` |
 
 共用的：
 
 | 文件 | 内容 |
 | --- | --- |
-| `endtoend_integration_test.go` | `TestPurchaseEndToEnd`（各步的顺序）；`fixture`（运行中的成员、替身、世界的 ID：上海与北京两个法人，Alice 与 Bob 两个采购员，只看北京申请的 Carol）；`start`（建世界、替身与 `mdm/org` 的流，迁移并运行成员）；辅助：`client.do`（新的幂等键）、`at`、`get`、`unit`、`publishOrgUnit`、`publishOrg`、`portFree` |
+| `endtoend_integration_test.go` | `TestPurchaseEndToEnd`（各步的顺序）；`fixture`（运行中的成员、替身、世界的 ID：上海与北京两个法人，Alice 与 Bob 两个采购员，只看北京申请的 Carol；`departments` 步里加的 Dave 只看部门 1 的树）；辅助：申请与订单的建、动作与“被状态拒绝”（各在自己的文件）；`start`（建世界、替身与 `mdm/org` 的流，迁移并运行成员）；辅助：`client.do`（新的幂等键）、`at`、`get`、`unit`、`publishOrgUnit`、`publishOrg`、`portFree` |
 | `standins_integration_test.go` | 替身，各按已发布的契约经 mTLS 答：四个主数据组件（供应商一个可用、一个暂停；产品一个库存物资、12 EA 一盒，一个服务）；测试自己扮演 `mdm/org` 发部门事件 |
 
 ## 加测试

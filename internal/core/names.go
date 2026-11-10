@@ -87,7 +87,7 @@ const (
 
 // DepartmentTables are the tables that copy their department's path (internal/orgunits rewrites them when a
 // department moves).
-var DepartmentTables = []string{"requisition"}
+var DepartmentTables = []string{"requisition", "purchase_order"}
 
 func fields(names ...string) map[string]sdkauthz.Field {
 	out := map[string]sdkauthz.Field{}
@@ -111,6 +111,11 @@ func scoped(owner string) map[string]sdkauthz.Dimension {
 var RequisitionFields = []string{"id", "number", "legal_entity_id", "department_id", "requester_id", "state", "reason",
 	"lines", "version", "updated_at", "created_at"}
 
+// OrderFields are what an order list may filter and sort on.
+var OrderFields = []string{"id", "number", "legal_entity_id", "supplier_id", "supplier", "currency", "business_date",
+	"owner_id", "department_id", "state", "revision", "total", "submitted_by", "approved_by", "reason", "lines",
+	"version", "created_at", "updated_at"}
+
 // Definitions are the component's resources and operations.
 func Definitions() *sdkauthz.Definitions {
 	low := func(key, typ, purpose string, audit bool) sdkauthz.Operation {
@@ -123,7 +128,7 @@ func Definitions() *sdkauthz.Definitions {
 	return &sdkauthz.Definitions{Component: ID,
 		Resources: []sdkauthz.Resource{
 			{Type: Requisitions, ViewOperation: OpReqRead, Dimensions: scoped("requester_id"), Fields: fields(RequisitionFields...)},
-			{Type: Orders, ViewOperation: OpOrderRead, Dimensions: scoped("owner_id"), Fields: fields("id")},
+			{Type: Orders, ViewOperation: OpOrderRead, Dimensions: scoped("owner_id"), Fields: fields(OrderFields...)},
 			{Type: Receipts, ViewOperation: OpReceiptRead, Dimensions: scoped("owner_id"), Fields: fields("id")},
 			{Type: Returns, ViewOperation: OpReturnRead, Dimensions: scoped("owner_id"), Fields: fields("id")},
 			{Type: Policies, ViewOperation: OpPolicyRead,

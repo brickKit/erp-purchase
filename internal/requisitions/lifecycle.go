@@ -30,6 +30,9 @@ const (
 	Approve = "approve"
 	Reject  = "reject"
 	Cancel  = "cancel"
+	Order   = "order"  // order lines are made from its lines (PR06)
+	Close   = "close"  // everything was ordered
+	Reopen  = "reopen" // an order gave back what it took
 )
 
 const (
@@ -39,7 +42,12 @@ const (
 	GuardNotSubmitter = "not by the one who submitted it"
 	// GuardNothingOrdered: an approved requisition is cancelled only when nothing was ordered from it.
 	GuardNothingOrdered = "nothing was ordered from it"
+	// GuardAllOrdered: every line was ordered whole; GuardNotAllOrdered: a line has some left again.
+	GuardAllOrdered    = "every line ordered whole"
+	GuardNotAllOrdered = "a line has some left"
 )
+
+const notApproved = "order lines are made only from an approved requisition; this one is {state}"
 
 const notDraft = "only a draft requisition changes; this one is {state}"
 
@@ -49,7 +57,7 @@ func refuse(rule, words string) core.Decision { return core.RefuseCell(rule, wor
 var Lifecycle = core.Table{
 	Rule:     regexp.MustCompile(`^PR\d\d$`),
 	Phases:   []string{Draft, Submitted, Approved, Rejected, Cancelled, Closed},
-	Commands: []string{Edit, Submit, Approve, Reject, Cancel},
+	Commands: []string{Edit, Submit, Approve, Reject, Cancel, Order, Close, Reopen},
 	Cells: map[string]map[string]core.Decision{
 		Edit: {
 			Draft:     core.ProceedCell("PR01"),
@@ -90,6 +98,30 @@ var Lifecycle = core.Table{
 			Rejected:  refuse("PR05", "a rejected requisition is not cancelled; it is already ended"),
 			Cancelled: core.IgnoreCell("PR05"),
 			Closed:    refuse("PR05", "a closed requisition is not cancelled: everything was ordered"),
+		},
+		Order: {
+			Draft:     refuse("PR06", notApproved),
+			Submitted: refuse("PR06", notApproved),
+			Approved:  core.ProceedCell("PR06"),
+			Rejected:  refuse("PR06", notApproved),
+			Cancelled: refuse("PR06", notApproved),
+			Closed:    refuse("PR06", "everything of the requisition was ordered"),
+		},
+		Close: {
+			Draft:     core.IgnoreCell("PR06"),
+			Submitted: core.IgnoreCell("PR06"),
+			Approved:  {Rule: "PR06", Effect: core.Move, To: Closed, Guard: GuardAllOrdered},
+			Rejected:  core.IgnoreCell("PR06"),
+			Cancelled: core.IgnoreCell("PR06"),
+			Closed:    core.IgnoreCell("PR06"),
+		},
+		Reopen: {
+			Draft:     core.IgnoreCell("PR06"),
+			Submitted: core.IgnoreCell("PR06"),
+			Approved:  core.IgnoreCell("PR06"),
+			Rejected:  core.IgnoreCell("PR06"),
+			Cancelled: core.IgnoreCell("PR06"),
+			Closed:    {Rule: "PR06", Effect: core.Move, To: Approved, Guard: GuardNotAllOrdered},
 		},
 	},
 }

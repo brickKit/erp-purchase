@@ -16,7 +16,7 @@
 ## 依赖与被依赖
 
 - 依赖：`core`、`masterdata`（`OrgUnit`、`OrgUnitRead`）。
-- 被依赖：`requisitions`（`Usable`）；入口登记订阅与工作。
+- 被依赖：`requisitions`、`orders`（`Usable`）；入口登记订阅与工作。
 
 ## 规则在哪
 
@@ -24,4 +24,4 @@
 
 ## 测试
 
-`itest/requisitions_integration_test.go`（别的法人的部门被拒）；部门移动后单据跟着走随订单（P3c）一起测。
+`itest/requisitions_integration_test.go`（别的法人的部门被拒）；`itest/departments_integration_test.go`（`departments`：部门移到另一部门之下，它的订单与申请跟着走；`laterOrgEvents`：不认识的动作与同一流上的法人事件，PJ36）。

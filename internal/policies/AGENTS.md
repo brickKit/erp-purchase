@@ -16,7 +16,7 @@
 ## 依赖与被依赖
 
 - 依赖：`core`。
-- 被依赖：`requisitions`；入口登记路由。
+- 被依赖：`requisitions`、`orders`；入口登记路由。
 
 ## 规则在哪
 

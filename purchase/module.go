@@ -5,6 +5,7 @@ import (
 	"time"
 
 	core "github.com/brickKit/erp-purchase/v3/internal/core"
+	orders "github.com/brickKit/erp-purchase/v3/internal/orders"
 	orgunits "github.com/brickKit/erp-purchase/v3/internal/orgunits"
 	policies "github.com/brickKit/erp-purchase/v3/internal/policies"
 	requisitions "github.com/brickKit/erp-purchase/v3/internal/requisitions"
@@ -42,16 +43,16 @@ func (m *Module) Routes(r *httpx.Routes) error {
 	add("POST", "/api/purchase/requisitions/:id/approve", core.OpReqApprove, requisitions.Action(m.b, requisitions.Approve))
 	add("POST", "/api/purchase/requisitions/:id/reject", core.OpReqApprove, requisitions.Action(m.b, requisitions.Reject))
 	add("POST", "/api/purchase/requisitions/:id/cancel", core.OpReqEdit, requisitions.Action(m.b, requisitions.Cancel))
-	add("GET", "/api/purchase/orders", core.OpOrderRead, todo)
-	add("POST", "/api/purchase/orders", core.OpOrderEdit, todo)
-	add("GET", "/api/purchase/orders/:id", core.OpOrderRead, todo)
-	add("PATCH", "/api/purchase/orders/:id", core.OpOrderEdit, todo)
-	add("POST", "/api/purchase/orders/:id/submit", core.OpOrderEdit, todo)
-	add("POST", "/api/purchase/orders/:id/approve", core.OpOrderApprove, todo)
-	add("POST", "/api/purchase/orders/:id/reject", core.OpOrderApprove, todo)
-	add("POST", "/api/purchase/orders/:id/revise", core.OpOrderEdit, todo)
-	add("POST", "/api/purchase/orders/:id/close", core.OpOrderEdit, todo)
-	add("POST", "/api/purchase/orders/:id/cancel", core.OpOrderEdit, todo)
+	add("GET", "/api/purchase/orders", core.OpOrderRead, h(orders.ListOrders))
+	add("POST", "/api/purchase/orders", core.OpOrderEdit, h(orders.CreateOrder))
+	add("GET", "/api/purchase/orders/:id", core.OpOrderRead, h(orders.GetOrder))
+	add("PATCH", "/api/purchase/orders/:id", core.OpOrderEdit, h(orders.UpdateOrder))
+	add("POST", "/api/purchase/orders/:id/submit", core.OpOrderEdit, orders.Action(m.b, orders.Submit))
+	add("POST", "/api/purchase/orders/:id/approve", core.OpOrderApprove, orders.Action(m.b, orders.Approve))
+	add("POST", "/api/purchase/orders/:id/reject", core.OpOrderApprove, orders.Action(m.b, orders.Reject))
+	add("POST", "/api/purchase/orders/:id/revise", core.OpOrderEdit, h(orders.ReviseOrder))
+	add("POST", "/api/purchase/orders/:id/close", core.OpOrderEdit, orders.Action(m.b, orders.Close))
+	add("POST", "/api/purchase/orders/:id/cancel", core.OpOrderEdit, orders.Action(m.b, orders.Cancel))
 	add("POST", "/api/purchase/orders/:id/receipts", core.OpReceiptCreate, todo)
 	add("GET", "/api/purchase/receipts", core.OpReceiptRead, todo)
 	add("GET", "/api/purchase/receipts/:id", core.OpReceiptRead, todo)

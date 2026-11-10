@@ -19,23 +19,25 @@
 
 | 模块 | 负责 | 拥有的表 |
 | --- | --- | --- |
+| [`orders`](internal/orders/AGENTS.md) | 采购订单与修订；**订单的生命周期**：一张表定每个状态能做什么、状态怎样变，状态唯一的写入（`Transition`）；从申请行取用 | `purchase_order`、`order_line` |
 | [`requisitions`](internal/requisitions/AGENTS.md) | 采购申请；**申请的生命周期**：一张表定每个状态能做什么、状态怎样变，状态唯一的写入（`Transition`） | `requisition`、`requisition_line` |
 | [`policies`](internal/policies/AGENTS.md) | 按法人的采购政策：要不要审批、超收比例 | `purchase_policy` |
 | [`orgunits`](internal/orgunits/AGENTS.md) | 部门投影（协议 02）：部门路径复制到单据上 | `org_realign`（投影本身在 SDK 的表里） |
 
 模块共用的（不属于某一个业务）：[`masterdata`](internal/masterdata/AGENTS.md)（事务外向主数据取证）、[`core`](internal/core/AGENTS.md)（名字、资源与操作的定义、错误与校验）。
 
-**实现进度**（3.0.0 开发中，装配项目阶段计划 C2 的 P3）：采购政策与申请已做；订单的生命周期、收货、验收与退货、系统面按 P3c–P3f 依次加进来（还没做的路由答“能力不支持”），每加一个模块就在上面两张表里加一行。
+**实现进度**（3.0.0 开发中，装配项目阶段计划 C2 的 P3）：采购政策、申请、订单的生命周期（到批准、修订、关闭、取消）已做；收货、验收与退货、系统面按 P3d–P3f 依次加进来（还没做的路由答“能力不支持”），每加一个模块就在上面两张表里加一行。
 
 | 想改 | 从这里开始 | 然后 |
 | --- | --- | --- |
+| 订单在某个状态下能不能做某件事；加一个订单状态或命令；新需求会不会和已有规则冲突 | `docs/design.md` 的“订单的状态”（一张表与规则目录 PO01–PO12） | `internal/orders/lifecycle.go`（同一张表）与它的说明里“加一个状态或命令” |
 | 申请在某个状态下能不能做某件事；加一个申请状态或命令 | `docs/design.md` 的申请一节（一张表与规则 PR01–PR06） | `internal/requisitions/lifecycle.go`（同一张表）与它的说明里“加一个状态或命令” |
 | 一个维度、一个操作、列表能筛选的字段 | `internal/core/names.go` | `docs/design.md` 的命令与查询、`BRICKKIT.md` 的契约索引；路由的登记在 `purchase/module.go` |
 | 加字段、加接口、改事件 | 装配项目 be-assembly-standard 规范里的“改动配方” | `docs/design.md` 的数据与命令 |
 
 ## 构建与测试
 
-- `go test ./...`（`make test`）：单元测试：`purchase/contract_test.go`（清单的 `configSchema` 与 `events`、OpenAPI 与路由、事件载荷、合并安全）；`internal/requisitions/lifecycle_test.go`（生命周期表）。
+- `go test ./...`（`make test`）：单元测试：`purchase/contract_test.go`（清单的 `configSchema` 与 `events`、OpenAPI 与路由、事件载荷、合并安全）；`internal/orders/lifecycle_test.go`、`internal/requisitions/lifecycle_test.go`（生命周期表）。
 - `make test-integration`（`go test -tags integration ./itest/`）：真实的 PostgreSQL 与消息系统；每个文件测哪条流程、覆盖哪些规则、要什么前提，在 [itest/AGENTS.md](itest/AGENTS.md)。
 - `brickkit lint`
 
