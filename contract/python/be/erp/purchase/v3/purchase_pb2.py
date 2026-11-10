@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n!be/erp/purchase/v3/purchase.proto\x12\x12\x62\x65.erp.purchase.v3\"O\n\x0c\x42\x61sisRequest\x12\x19\n\x08order_id\x18\x01 \x01(\tR\x07orderId\x12$\n\x0eorder_line_ids\x18\x02 \x03(\tR\x0corderLineIds\"\xc6\x01\n\x0fReceiptMovement\x12\x1f\n\x0bmovement_id\x18\x01 \x01(\tR\nmovementId\x12&\n\x0freceipt_line_id\x18\x02 \x01(\tR\rreceiptLineId\x12\x34\n\x16received_base_quantity\x18\x03 \x01(\tR\x14receivedBaseQuantity\x12\x34\n\x16returned_base_quantity\x18\x04 \x01(\tR\x14returnedBaseQuantity\"\xd7\x04\n\tBasisLine\x12\x19\n\x08order_id\x18\x01 \x01(\tR\x07orderId\x12\"\n\rorder_line_id\x18\x02 \x01(\tR\x0borderLineId\x12%\n\x0eorder_revision\x18\x03 \x01(\x03R\rorderRevision\x12&\n\x0flegal_entity_id\x18\x04 \x01(\tR\rlegalEntityId\x12\x1f\n\x0bsupplier_id\x18\x05 \x01(\tR\nsupplierId\x12\x12\n\x04kind\x18\x06 \x01(\tR\x04kind\x12\x1d\n\nproduct_id\x18\x07 \x01(\tR\tproductId\x12\x12\n\x04unit\x18\x08 \x01(\tR\x04unit\x12)\n\x10ordered_quantity\x18\t \x01(\tR\x0forderedQuantity\x12\x34\n\x16received_base_quantity\x18\n \x01(\tR\x14receivedBaseQuantity\x12+\n\x11\x61\x63\x63\x65pted_quantity\x18\x0b \x01(\tR\x10\x61\x63\x63\x65ptedQuantity\x12\'\n\x0f\x61\x63\x63\x65pted_amount\x18\x0c \x01(\tR\x0e\x61\x63\x63\x65ptedAmount\x12\x1d\n\nunit_price\x18\r \x01(\tR\tunitPrice\x12\x1a\n\x08\x63urrency\x18\x0e \x01(\tR\x08\x63urrency\x12\x41\n\tmovements\x18\x0f \x03(\x0b\x32#.be.erp.purchase.v3.ReceiptMovementR\tmovements\x12\x1f\n\x0border_state\x18\x10 \x01(\tR\norderState\"D\n\rBasisResponse\x12\x33\n\x05lines\x18\x01 \x03(\x0b\x32\x1d.be.erp.purchase.v3.BasisLineR\x05lines\"(\n\x0bReadRequest\x12\x19\n\x08\x66\x61\x63t_ids\x18\x01 \x03(\tR\x07\x66\x61\x63tIds\"G\n\x04\x46\x61\x63t\x12\x17\n\x07\x66\x61\x63t_id\x18\x01 \x01(\tR\x06\x66\x61\x63tId\x12\x12\n\x04type\x18\x02 \x01(\tR\x04type\x12\x12\n\x04\x64\x61ta\x18\x03 \x01(\x0cR\x04\x64\x61ta\">\n\x0cReadResponse\x12.\n\x05\x66\x61\x63ts\x18\x01 \x03(\x0b\x32\x18.be.erp.purchase.v3.FactR\x05\x66\x61\x63ts2\\\n\x0cMatchService\x12L\n\x05\x42\x61sis\x12 .be.erp.purchase.v3.BasisRequest\x1a!.be.erp.purchase.v3.BasisResponse2X\n\x0b\x46\x61\x63tService\x12I\n\x04Read\x12\x1f.be.erp.purchase.v3.ReadRequest\x1a .be.erp.purchase.v3.ReadResponseBSZQgithub.com/brickKit/erp-purchase/contract/v3/gen/go/be/erp/purchase/v3;purchasev3b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n!be/erp/purchase/v3/purchase.proto\x12\x12\x62\x65.erp.purchase.v3\"O\n\x0c\x42\x61sisRequest\x12\x19\n\x08order_id\x18\x01 \x01(\tR\x07orderId\x12$\n\x0eorder_line_ids\x18\x02 \x03(\tR\x0corderLineIds\"\xc6\x01\n\x0fReceiptMovement\x12\x1f\n\x0bmovement_id\x18\x01 \x01(\tR\nmovementId\x12&\n\x0freceipt_line_id\x18\x02 \x01(\tR\rreceiptLineId\x12\x34\n\x16received_base_quantity\x18\x03 \x01(\tR\x14receivedBaseQuantity\x12\x34\n\x16returned_base_quantity\x18\x04 \x01(\tR\x14returnedBaseQuantity\"\x8b\x05\n\tBasisLine\x12\x19\n\x08order_id\x18\x01 \x01(\tR\x07orderId\x12\"\n\rorder_line_id\x18\x02 \x01(\tR\x0borderLineId\x12%\n\x0eorder_revision\x18\x03 \x01(\x03R\rorderRevision\x12&\n\x0flegal_entity_id\x18\x04 \x01(\tR\rlegalEntityId\x12\x1f\n\x0bsupplier_id\x18\x05 \x01(\tR\nsupplierId\x12\x12\n\x04kind\x18\x06 \x01(\tR\x04kind\x12\x1d\n\nproduct_id\x18\x07 \x01(\tR\tproductId\x12\x12\n\x04unit\x18\x08 \x01(\tR\x04unit\x12)\n\x10ordered_quantity\x18\t \x01(\tR\x0forderedQuantity\x12\x34\n\x16received_base_quantity\x18\n \x01(\tR\x14receivedBaseQuantity\x12+\n\x11\x61\x63\x63\x65pted_quantity\x18\x0b \x01(\tR\x10\x61\x63\x63\x65ptedQuantity\x12\'\n\x0f\x61\x63\x63\x65pted_amount\x18\x0c \x01(\tR\x0e\x61\x63\x63\x65ptedAmount\x12\x1d\n\nunit_price\x18\r \x01(\tR\tunitPrice\x12\x1a\n\x08\x63urrency\x18\x0e \x01(\tR\x08\x63urrency\x12\x41\n\tmovements\x18\x0f \x03(\x0b\x32#.be.erp.purchase.v3.ReceiptMovementR\tmovements\x12\x1f\n\x0border_state\x18\x10 \x01(\tR\norderState\x12\x32\n\x15ordered_base_quantity\x18\x11 \x01(\tR\x13orderedBaseQuantity\"D\n\rBasisResponse\x12\x33\n\x05lines\x18\x01 \x03(\x0b\x32\x1d.be.erp.purchase.v3.BasisLineR\x05lines\"(\n\x0bReadRequest\x12\x19\n\x08\x66\x61\x63t_ids\x18\x01 \x03(\tR\x07\x66\x61\x63tIds\"G\n\x04\x46\x61\x63t\x12\x17\n\x07\x66\x61\x63t_id\x18\x01 \x01(\tR\x06\x66\x61\x63tId\x12\x12\n\x04type\x18\x02 \x01(\tR\x04type\x12\x12\n\x04\x64\x61ta\x18\x03 \x01(\x0cR\x04\x64\x61ta\">\n\x0cReadResponse\x12.\n\x05\x66\x61\x63ts\x18\x01 \x03(\x0b\x32\x18.be.erp.purchase.v3.FactR\x05\x66\x61\x63ts2\\\n\x0cMatchService\x12L\n\x05\x42\x61sis\x12 .be.erp.purchase.v3.BasisRequest\x1a!.be.erp.purchase.v3.BasisResponse2X\n\x0b\x46\x61\x63tService\x12I\n\x04Read\x12\x1f.be.erp.purchase.v3.ReadRequest\x1a .be.erp.purchase.v3.ReadResponseBSZQgithub.com/brickKit/erp-purchase/contract/v3/gen/go/be/erp/purchase/v3;purchasev3b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,17 +37,17 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_RECEIPTMOVEMENT']._serialized_start=139
   _globals['_RECEIPTMOVEMENT']._serialized_end=337
   _globals['_BASISLINE']._serialized_start=340
-  _globals['_BASISLINE']._serialized_end=939
-  _globals['_BASISRESPONSE']._serialized_start=941
-  _globals['_BASISRESPONSE']._serialized_end=1009
-  _globals['_READREQUEST']._serialized_start=1011
-  _globals['_READREQUEST']._serialized_end=1051
-  _globals['_FACT']._serialized_start=1053
-  _globals['_FACT']._serialized_end=1124
-  _globals['_READRESPONSE']._serialized_start=1126
-  _globals['_READRESPONSE']._serialized_end=1188
-  _globals['_MATCHSERVICE']._serialized_start=1190
-  _globals['_MATCHSERVICE']._serialized_end=1282
-  _globals['_FACTSERVICE']._serialized_start=1284
-  _globals['_FACTSERVICE']._serialized_end=1372
+  _globals['_BASISLINE']._serialized_end=991
+  _globals['_BASISRESPONSE']._serialized_start=993
+  _globals['_BASISRESPONSE']._serialized_end=1061
+  _globals['_READREQUEST']._serialized_start=1063
+  _globals['_READREQUEST']._serialized_end=1103
+  _globals['_FACT']._serialized_start=1105
+  _globals['_FACT']._serialized_end=1176
+  _globals['_READRESPONSE']._serialized_start=1178
+  _globals['_READRESPONSE']._serialized_end=1240
+  _globals['_MATCHSERVICE']._serialized_start=1242
+  _globals['_MATCHSERVICE']._serialized_end=1334
+  _globals['_FACTSERVICE']._serialized_start=1336
+  _globals['_FACTSERVICE']._serialized_end=1424
 # @@protoc_insertion_point(module_scope)

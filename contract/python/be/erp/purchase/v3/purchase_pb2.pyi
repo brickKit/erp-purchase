@@ -27,7 +27,7 @@ class ReceiptMovement(_message.Message):
     def __init__(self, movement_id: _Optional[str] = ..., receipt_line_id: _Optional[str] = ..., received_base_quantity: _Optional[str] = ..., returned_base_quantity: _Optional[str] = ...) -> None: ...
 
 class BasisLine(_message.Message):
-    __slots__ = ("order_id", "order_line_id", "order_revision", "legal_entity_id", "supplier_id", "kind", "product_id", "unit", "ordered_quantity", "received_base_quantity", "accepted_quantity", "accepted_amount", "unit_price", "currency", "movements", "order_state")
+    __slots__ = ("order_id", "order_line_id", "order_revision", "legal_entity_id", "supplier_id", "kind", "product_id", "unit", "ordered_quantity", "received_base_quantity", "accepted_quantity", "accepted_amount", "unit_price", "currency", "movements", "order_state", "ordered_base_quantity")
     ORDER_ID_FIELD_NUMBER: _ClassVar[int]
     ORDER_LINE_ID_FIELD_NUMBER: _ClassVar[int]
     ORDER_REVISION_FIELD_NUMBER: _ClassVar[int]
@@ -44,6 +44,7 @@ class BasisLine(_message.Message):
     CURRENCY_FIELD_NUMBER: _ClassVar[int]
     MOVEMENTS_FIELD_NUMBER: _ClassVar[int]
     ORDER_STATE_FIELD_NUMBER: _ClassVar[int]
+    ORDERED_BASE_QUANTITY_FIELD_NUMBER: _ClassVar[int]
     order_id: str
     order_line_id: str
     order_revision: int
@@ -60,7 +61,8 @@ class BasisLine(_message.Message):
     currency: str
     movements: _containers.RepeatedCompositeFieldContainer[ReceiptMovement]
     order_state: str
-    def __init__(self, order_id: _Optional[str] = ..., order_line_id: _Optional[str] = ..., order_revision: _Optional[int] = ..., legal_entity_id: _Optional[str] = ..., supplier_id: _Optional[str] = ..., kind: _Optional[str] = ..., product_id: _Optional[str] = ..., unit: _Optional[str] = ..., ordered_quantity: _Optional[str] = ..., received_base_quantity: _Optional[str] = ..., accepted_quantity: _Optional[str] = ..., accepted_amount: _Optional[str] = ..., unit_price: _Optional[str] = ..., currency: _Optional[str] = ..., movements: _Optional[_Iterable[_Union[ReceiptMovement, _Mapping]]] = ..., order_state: _Optional[str] = ...) -> None: ...
+    ordered_base_quantity: str
+    def __init__(self, order_id: _Optional[str] = ..., order_line_id: _Optional[str] = ..., order_revision: _Optional[int] = ..., legal_entity_id: _Optional[str] = ..., supplier_id: _Optional[str] = ..., kind: _Optional[str] = ..., product_id: _Optional[str] = ..., unit: _Optional[str] = ..., ordered_quantity: _Optional[str] = ..., received_base_quantity: _Optional[str] = ..., accepted_quantity: _Optional[str] = ..., accepted_amount: _Optional[str] = ..., unit_price: _Optional[str] = ..., currency: _Optional[str] = ..., movements: _Optional[_Iterable[_Union[ReceiptMovement, _Mapping]]] = ..., order_state: _Optional[str] = ..., ordered_base_quantity: _Optional[str] = ...) -> None: ...
 
 class BasisResponse(_message.Message):
     __slots__ = ("lines",)

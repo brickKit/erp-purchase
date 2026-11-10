@@ -64,6 +64,9 @@ message BasisLine {
   repeated ReceiptMovement movements = 15;
   // draft, submitted, approved, completed, closed, cancelled
   string order_state = 16;
+  // the ordered quantity in the base unit (ordered_quantity converted): with it erp/finance turns the received base
+  // quantity into the order line's unit and a price per order unit into a price per base unit
+  string ordered_base_quantity = 17;
 }
 
 message BasisResponse {

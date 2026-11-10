@@ -177,9 +177,12 @@ type BasisLine struct {
 	Currency  string             `protobuf:"bytes,14,opt,name=currency,proto3" json:"currency,omitempty"`
 	Movements []*ReceiptMovement `protobuf:"bytes,15,rep,name=movements,proto3" json:"movements,omitempty"`
 	// draft, submitted, approved, completed, closed, cancelled
-	OrderState    string `protobuf:"bytes,16,opt,name=order_state,json=orderState,proto3" json:"order_state,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	OrderState string `protobuf:"bytes,16,opt,name=order_state,json=orderState,proto3" json:"order_state,omitempty"`
+	// the ordered quantity in the base unit (ordered_quantity converted): with it erp/finance turns the received base
+	// quantity into the order line's unit and a price per order unit into a price per base unit
+	OrderedBaseQuantity string `protobuf:"bytes,17,opt,name=ordered_base_quantity,json=orderedBaseQuantity,proto3" json:"ordered_base_quantity,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *BasisLine) Reset() {
@@ -320,6 +323,13 @@ func (x *BasisLine) GetMovements() []*ReceiptMovement {
 func (x *BasisLine) GetOrderState() string {
 	if x != nil {
 		return x.OrderState
+	}
+	return ""
+}
+
+func (x *BasisLine) GetOrderedBaseQuantity() string {
+	if x != nil {
+		return x.OrderedBaseQuantity
 	}
 	return ""
 }
@@ -533,7 +543,7 @@ const file_be_erp_purchase_v3_purchase_proto_rawDesc = "" +
 	"movementId\x12&\n" +
 	"\x0freceipt_line_id\x18\x02 \x01(\tR\rreceiptLineId\x124\n" +
 	"\x16received_base_quantity\x18\x03 \x01(\tR\x14receivedBaseQuantity\x124\n" +
-	"\x16returned_base_quantity\x18\x04 \x01(\tR\x14returnedBaseQuantity\"\xd7\x04\n" +
+	"\x16returned_base_quantity\x18\x04 \x01(\tR\x14returnedBaseQuantity\"\x8b\x05\n" +
 	"\tBasisLine\x12\x19\n" +
 	"\border_id\x18\x01 \x01(\tR\aorderId\x12\"\n" +
 	"\rorder_line_id\x18\x02 \x01(\tR\vorderLineId\x12%\n" +
@@ -555,7 +565,8 @@ const file_be_erp_purchase_v3_purchase_proto_rawDesc = "" +
 	"\bcurrency\x18\x0e \x01(\tR\bcurrency\x12A\n" +
 	"\tmovements\x18\x0f \x03(\v2#.be.erp.purchase.v3.ReceiptMovementR\tmovements\x12\x1f\n" +
 	"\vorder_state\x18\x10 \x01(\tR\n" +
-	"orderState\"D\n" +
+	"orderState\x122\n" +
+	"\x15ordered_base_quantity\x18\x11 \x01(\tR\x13orderedBaseQuantity\"D\n" +
 	"\rBasisResponse\x123\n" +
 	"\x05lines\x18\x01 \x03(\v2\x1d.be.erp.purchase.v3.BasisLineR\x05lines\"(\n" +
 	"\vReadRequest\x12\x19\n" +
