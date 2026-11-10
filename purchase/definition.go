@@ -1,0 +1,36 @@
+// Package purchase is the purchase component: requisitions, purchase orders and their approval, receipts through the
+// inventory, service acceptances and purchase returns; the valuation bases erp/costing takes and the match basis
+// erp/finance reads (protocols 05 and 05b).
+package purchase
+
+import (
+	"embed"
+	"io/fs"
+
+	core "github.com/brickKit/erp-purchase/v3/internal/core"
+
+	"github.com/brickKit/be-sdk-go/v3/component"
+	"github.com/brickKit/be-sdk-go/v3/events"
+	"github.com/brickKit/be-sdk-go/v3/runtime"
+)
+
+// Identity.
+const (
+	Version  = "3.0.0"
+	GRPCPort = 9095
+)
+
+//go:embed migrations/*.sql
+var migrationFiles embed.FS
+
+func migrations() fs.FS {
+	sub, _ := fs.Sub(migrationFiles, "migrations")
+	return sub
+}
+
+// Definition is the component as the launcher and the shells take it.
+func Definition() component.Definition {
+	return component.Definition{ID: core.ID, Version: Version, Migrations: migrations(), GRPCPort: GRPCPort, Subscribes: true,
+		Streams: []events.Stream{{Name: core.Stream, Partitions: 4}}, Authz: core.Definitions(), Resend: core.OpResend,
+		Recovery: core.OpRecover, New: func(rt *runtime.Runtime) (component.Module, error) { return New(rt) }}
+}
