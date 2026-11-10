@@ -12,6 +12,7 @@
 | [`internal/`](internal/AGENTS.md) | 业务：下面的表里每个模块一个包；模块之间的依赖表在它的 `AGENTS.md`。Go 的 `internal` 让别的组件编译期就引用不了（决定 0101） |
 | [`itest/`](itest/AGENTS.md) | 集成测试，按业务流程分文件；它的 `AGENTS.md` 是测试索引（文件 → 流程 → 规则编号） |
 | `purchase/migrations/` | 表，整个组件一套（迁移顺序是全组件的，不按模块拆） |
+| `cmd/seed/` | 种子：角色与两个采购账号的范围、各法人的政策、各种状态的申请与订单（含收货、验收、退货）（`make seed`） |
 | `contract/` | 本组件发布的契约，单独的模块：`contract/proto/`、`contract/events/`、`contract/openapi.yaml` |
 | `docs/` | 设计（规则的正文；各层的 `AGENTS.md` 只指过去，不抄） |
 
@@ -31,7 +32,7 @@
 
 模块共用的（不属于某一个业务）：[`masterdata`](internal/masterdata/AGENTS.md)（事务外向主数据取证）、[`core`](internal/core/AGENTS.md)（名字、资源与操作的定义、错误与校验、增量事实 `Fact`；表 `purchase_fact` 留着每个增量事实给 `FactService.Read`）。
 
-**实现进度**（3.0.0 开发中，装配项目阶段计划 C2）：用户面、系统面与恢复核对都已实现（预付申请与价格表按设计答“能力不支持”）；种子与发布随 P4、P5。
+**实现进度**（3.0.0 开发中，装配项目阶段计划 C2）：用户面、系统面与恢复核对都已实现（预付申请与价格表按设计答“能力不支持”）；发布随 P5。
 
 | 想改 | 从这里开始 | 然后 |
 | --- | --- | --- |
