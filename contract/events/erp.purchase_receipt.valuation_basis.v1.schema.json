@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://brickkit.dev/erp-purchase/events/erp.purchase_receipt.valuation_basis.v1.schema.json",
+  "title": "erp.purchase_receipt.valuation_basis.v1",
+  "description": "A receipt line's valuation basis for costing (protocol 05b): published when the receipt is made. An incremental fact that must not be missed (protocol 05, common rules): consumers dedupe by fact_id and read a missed one back with FactService.Read. fact_id is the receipt line's ID, the receipt line reference erp/inventory's movements carry.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fact_id",
+    "receipt_id",
+    "order_id",
+    "order_line_id",
+    "legal_entity_id",
+    "product_id",
+    "base_quantity",
+    "unit_price",
+    "currency",
+    "price_basis",
+    "business_date",
+    "recorded_at"
+  ],
+  "properties": {
+    "fact_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "receipt_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "order_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "order_line_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "legal_entity_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "product_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "base_quantity": {
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+)?$"
+    },
+    "unit_price": {
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+)?$",
+      "description": "net of tax, per base unit"
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "price_basis": {
+      "enum": [
+        "net_of_tax"
+      ]
+    },
+    "business_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

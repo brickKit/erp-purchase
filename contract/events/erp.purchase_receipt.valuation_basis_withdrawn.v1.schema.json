@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://brickkit.dev/erp-purchase/events/erp.purchase_receipt.valuation_basis_withdrawn.v1.schema.json",
+  "title": "erp.purchase_receipt.valuation_basis_withdrawn.v1",
+  "description": "The withdrawal of a receipt line's valuation basis: the receipt failed, no movement uses it (protocol 05b's withdrawal of a basis). An incremental fact that must not be missed (protocol 05, common rules): consumers dedupe by fact_id and read a missed one back with FactService.Read.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fact_id",
+    "basis_fact_id",
+    "receipt_id",
+    "reason",
+    "recorded_at"
+  ],
+  "properties": {
+    "fact_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "basis_fact_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "the receipt line whose basis is withdrawn"
+    },
+    "receipt_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

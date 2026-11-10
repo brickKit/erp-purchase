@@ -1,0 +1,89 @@
+// The system surface of erp/purchase: the match basis of its order lines (erp/finance's three-way match and the
+// period-end accrual, protocol 05, D50) and the read of its incremental facts by identity (protocol 05's common rules:
+// a consumer that missed a fact reads it back). Callers use their service identity; it never filters by a user.
+// Quantities and amounts are decimal strings (protocol 14), never floats. The user surface is REST
+// (../../../../../openapi.yaml); the event payloads are ../../../../../events/.
+syntax = "proto3";
+
+package be.erp.purchase.v3;
+
+option go_package = "github.com/brickKit/erp-purchase/contract/v3/gen/go/be/erp/purchase/v3;purchasev3";
+
+// MatchService answers what an order's lines have ordered, received and accepted: the basis a supplier invoice is
+// matched against (D50) and the accepted-not-invoiced lines a period-end accrual reads (protocol 05).
+service MatchService {
+  // Basis answers the lines of one order, or the lines asked (at most 500), as they stand now.
+  rpc Basis(BasisRequest) returns (BasisResponse);
+}
+
+// FactService reads this component's incremental facts by identity: the valuation bases and their withdrawals, the
+// acceptances and the purchase returns (the fact_id of their events); at most 500 a call.
+service FactService {
+  rpc Read(ReadRequest) returns (ReadResponse);
+}
+
+message BasisRequest {
+  // one of: an order
+  string order_id = 1;
+  // or the order lines
+  repeated string order_line_ids = 2;
+}
+
+// ReceiptMovement is one inbound movement a goods line received (erp/inventory's fact), net of what was returned from
+// it.
+message ReceiptMovement {
+  string movement_id = 1;
+  // the receipt line (the receipt line reference of erp/inventory and erp/costing)
+  string receipt_line_id = 2;
+  // base unit
+  string received_base_quantity = 3;
+  string returned_base_quantity = 4;
+}
+
+message BasisLine {
+  string order_id = 1;
+  string order_line_id = 2;
+  // the order's revision these numbers are of
+  int64 order_revision = 3;
+  string legal_entity_id = 4;
+  string supplier_id = 5;
+  // goods or service
+  string kind = 6;
+  string product_id = 7;
+  // the order line's unit and quantity
+  string unit = 8;
+  string ordered_quantity = 9;
+  // base unit, net of returns; goods only
+  string received_base_quantity = 10;
+  // the order line's unit; service only
+  string accepted_quantity = 11;
+  string accepted_amount = 12;
+  // net of tax, per the order line's unit
+  string unit_price = 13;
+  string currency = 14;
+  repeated ReceiptMovement movements = 15;
+  // draft, submitted, approved, completed, closed, cancelled
+  string order_state = 16;
+}
+
+message BasisResponse {
+  repeated BasisLine lines = 1;
+}
+
+message ReadRequest {
+  repeated string fact_ids = 1;
+}
+
+// Fact is one incremental fact as its event carried it.
+message Fact {
+  string fact_id = 1;
+  // the event type, e.g. erp.purchase_receipt.valuation_basis.v1; empty when no such fact
+  string type = 2;
+  // the event payload (JSON, the event's schema)
+  bytes data = 3;
+}
+
+message ReadResponse {
+  // in the order asked; a fact unknown here has an empty type
+  repeated Fact facts = 1;
+}
