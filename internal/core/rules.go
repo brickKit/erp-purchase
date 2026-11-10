@@ -38,6 +38,12 @@ var (
 	// PR06: a requisition line an order line is made from
 	ErrRequisition = errs.Define(ID, "REQUISITION_LINE_NOT_USABLE", errs.FailedPrecondition, 409, errs.RetryNo,
 		"The requisition line is not approved, is of another legal entity, product or unit, or has not that much left")
+	// PO07, PO08: over the ordered quantity and the policy's over-receipt percent
+	ErrOverReceipt = errs.Define(ID, "OVER_RECEIPT", errs.FailedPrecondition, 409, errs.RetryNo,
+		"More than the order line allows with the legal entity's over-receipt percent")
+	// PO07: erp/inventory refused the receipt; the receipt is failed (its ID in the problem's receipt_id)
+	ErrReceiptFailed = errs.Define(ID, "RECEIPT_FAILED", errs.FailedPrecondition, 409, errs.RetryNo,
+		"erp/inventory refused the receipt")
 	// PR03, PO04: an approver is not the one who submitted (by account)
 	ErrApprover = errs.Define(ID, "APPROVER_IS_SUBMITTER", errs.FailedPrecondition, 409, errs.RetryNo,
 		"The one who submitted it does not approve it")
@@ -152,6 +158,30 @@ func Minus(a, b string) string {
 	_, _ = apd.BaseContext.WithPrecision(80).Sub(&r, x, y)
 	r.Reduce(&r)
 	return r.Text('f')
+}
+
+// Per is a ÷ b rounded half away from zero to scale places (a price per base unit).
+func Per(a, b string, scale int32) string {
+	x, _, _ := apd.NewFromString(a)
+	y, _, _ := apd.NewFromString(b)
+	var r apd.Decimal
+	_, _ = apd.BaseContext.WithPrecision(80).Quo(&r, x, y)
+	out, _, _ := apd.NewFromString(money.Format(&r, scale))
+	out.Reduce(out)
+	return out.Text('f')
+}
+
+// Fact publishes an incremental fact (protocol 05, common rules) in the transaction that made it, and keeps it for
+// FactService.Read: its record is the fact's ID.
+func Fact(m *Base, ctx context.Context, tx db.Tx, typ, factID, legalEntity string, data any) error {
+	b, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO purchase_fact (fact_id, type, data) VALUES ($1, $2, $3)`, factID, typ, b); err != nil {
+		return err
+	}
+	return Emit(m, ctx, tx, typ, factID, 1, legalEntity, json.RawMessage(b))
 }
 
 // Times is a × b rounded half away from zero to scale places.

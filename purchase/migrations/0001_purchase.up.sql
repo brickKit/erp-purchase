@@ -113,3 +113,66 @@ CREATE TABLE order_line (
     UNIQUE (order_id, line_no) DEFERRABLE INITIALLY DEFERRED -- a revision renumbers the lines it keeps
 );
 CREATE INDEX order_line_requisition ON order_line (requisition_line_id) WHERE requisition_line_id IS NOT NULL;
+
+-- Goods receipts (PO07): receiving until erp/inventory's movements are in, then posted; failed when it refused. The
+-- three dimensions are the order's, copied. created_by is who received (the outcome is audited in their name).
+CREATE TABLE receipt (
+    id              uuid PRIMARY KEY,
+    number          text NOT NULL UNIQUE,
+    order_id        uuid NOT NULL REFERENCES purchase_order (id),
+    order_revision  int NOT NULL,
+    legal_entity_id uuid NOT NULL,
+    warehouse_id    uuid NOT NULL,
+    business_date   date NOT NULL,
+    owner_id        text NOT NULL,
+    department_id   uuid,
+    department_path text,
+    state           text NOT NULL DEFAULT 'receiving' CHECK (state IN ('receiving', 'posted', 'failed')),
+    reason          text,
+    created_by      text NOT NULL,
+    version         bigint NOT NULL DEFAULT 1,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    updated_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX receipt_list ON receipt (created_at DESC, id);
+CREATE INDEX receipt_order ON receipt (order_id);
+CREATE INDEX receipt_department ON receipt (department_id);
+CREATE INDEX receipt_receiving ON receipt (created_at) WHERE state = 'receiving';
+
+-- A receipt line's ID is the receipt line reference erp/inventory's movement and erp/costing carry; quantity is in
+-- the order line's unit, base_quantity what erp/inventory takes.
+CREATE TABLE receipt_line (
+    id            uuid PRIMARY KEY,
+    receipt_id    uuid NOT NULL REFERENCES receipt (id),
+    line_no       int NOT NULL,
+    order_line_id uuid NOT NULL REFERENCES order_line (id),
+    product_id    uuid NOT NULL,
+    quantity      numeric(19,6) NOT NULL CHECK (quantity > 0),
+    base_quantity numeric(19,6) NOT NULL CHECK (base_quantity > 0),
+    batch         text,
+    serials       text[] NOT NULL DEFAULT '{}',
+    UNIQUE (receipt_id, line_no),
+    UNIQUE (receipt_id, order_line_id)
+);
+
+-- The movements a receipt line received: the only source of the received quantity, one row a movement (its fact_id).
+-- returned_base_qty is what purchase returns took back from it.
+CREATE TABLE receipt_movement (
+    movement_id       uuid PRIMARY KEY,
+    receipt_line_id   uuid NOT NULL REFERENCES receipt_line (id),
+    order_line_id     uuid NOT NULL REFERENCES order_line (id),
+    base_quantity     numeric(19,6) NOT NULL CHECK (base_quantity > 0),
+    returned_base_qty numeric(19,6) NOT NULL DEFAULT 0 CHECK (returned_base_qty >= 0 AND returned_base_qty <= base_quantity),
+    recorded_at       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX receipt_movement_line ON receipt_movement (receipt_line_id);
+
+-- Every incremental fact this component published, by its ID: what FactService.Read answers (protocol 05, common
+-- rules: a consumer that missed one reads it back).
+CREATE TABLE purchase_fact (
+    fact_id     uuid NOT NULL,
+    type        text NOT NULL,
+    data        jsonb NOT NULL,
+    recorded_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (fact_id, type)
+);

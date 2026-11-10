@@ -28,6 +28,7 @@ events:
     - erp.purchase_return.changed.v1
     - erp.purchase_return.posted.v1
   subscribes:
+    - erp.inventory_movement.recorded.v1
     - mdm.org_unit.changed.v1
 
 deployment:

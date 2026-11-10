@@ -19,14 +19,15 @@
 
 | 模块 | 负责 | 拥有的表 |
 | --- | --- | --- |
+| [`receipts`](internal/receipts/AGENTS.md) | 收货：经库存入库（同步一次、工作项重发），收货计价依据与撤回；**已收数量只来自库存的入库流水**（答复与流水事件按流水身份去重） | `receipt`、`receipt_line`、`receipt_movement` |
 | [`orders`](internal/orders/AGENTS.md) | 采购订单与修订；**订单的生命周期**：一张表定每个状态能做什么、状态怎样变，状态唯一的写入（`Transition`）；从申请行取用 | `purchase_order`、`order_line` |
 | [`requisitions`](internal/requisitions/AGENTS.md) | 采购申请；**申请的生命周期**：一张表定每个状态能做什么、状态怎样变，状态唯一的写入（`Transition`） | `requisition`、`requisition_line` |
 | [`policies`](internal/policies/AGENTS.md) | 按法人的采购政策：要不要审批、超收比例 | `purchase_policy` |
 | [`orgunits`](internal/orgunits/AGENTS.md) | 部门投影（协议 02）：部门路径复制到单据上 | `org_realign`（投影本身在 SDK 的表里） |
 
-模块共用的（不属于某一个业务）：[`masterdata`](internal/masterdata/AGENTS.md)（事务外向主数据取证）、[`core`](internal/core/AGENTS.md)（名字、资源与操作的定义、错误与校验）。
+模块共用的（不属于某一个业务）：[`masterdata`](internal/masterdata/AGENTS.md)（事务外向主数据取证）、[`core`](internal/core/AGENTS.md)（名字、资源与操作的定义、错误与校验、增量事实 `Fact`；表 `purchase_fact` 留着每个增量事实给 `FactService.Read`）。
 
-**实现进度**（3.0.0 开发中，装配项目阶段计划 C2 的 P3）：采购政策、申请、订单的生命周期（到批准、修订、关闭、取消）已做；收货、验收与退货、系统面按 P3d–P3f 依次加进来（还没做的路由答“能力不支持”），每加一个模块就在上面两张表里加一行。
+**实现进度**（3.0.0 开发中，装配项目阶段计划 C2 的 P3）：采购政策、申请、订单的生命周期、收货已做；验收与退货、系统面按 P3e–P3f 依次加进来（还没做的路由答“能力不支持”），每加一个模块就在上面两张表里加一行。
 
 | 想改 | 从这里开始 | 然后 |
 | --- | --- | --- |
@@ -43,11 +44,13 @@
 
 ## 设计取舍
 
+- **收货数量以库存为准**：收货单上的数量是请求；已收只在 `receipts` 的 `record` 里按库存的流水加，答复与流水事件谁先到都一样，按流水身份只算一次。所以库存答复丢了、进程在调用之后崩了，结果都由入库事实补齐（验证故事）。
 - **部门路径复制到单据上**（同 `erp/sales`）：SDK 的列表只按本表的列下推组织树维度，所以单据带 `department_path`，部门事件到达时改写，对齐工作项兜底；改写之前有一个窗口（投影的新鲜度）。
 
 ## 易错点
 
-- 不要在事务里调主数据或库存：先取证（`internal/masterdata`），再开事务。
+- 不要在事务里调主数据或库存：先取证（`internal/masterdata`），再开事务；调库存的命令在事务提交之后，结果不明就留给工作项按同一身份重发。
+- 不要在别处加订单行的已收：只经 `receipts` 的 `record`（按流水身份去重）。
 - 不要用浮点算金额与数量：乘法经 `core.Times`（`apd`），比较与加减在 SQL 里做。
 - 带 `department_path` 的新表要加进 `core.DepartmentTables`，否则部门移动时它的副本不改写。
 

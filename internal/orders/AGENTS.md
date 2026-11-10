@@ -22,12 +22,13 @@
 | `lifecycle_test.go` | 单元测试：每一格都定了；设计文档的表与代码逐格相同 |
 | `records.go` | `Order`、`Line`、`Supplier`、`Product`（事件的形状）；读取的 SQL（`cols`、`scan`、`Get`、`Read`）与 `Emit` |
 | `lines.go` | `OrderIn`、`LineIn`（契约的 `OrderIn`）；输入的检查（`checkIn`）、事务外的取证与行的计算（`prepare`：部门、法人、币种小数位、供应商可采购、产品可采购与是否库存物资、换算、金额）、`fresh`（取证不超过 W）；草稿整份替换行（`replaceLines`）、修订按行身份保留（`reviseLines`）；从申请行取用的净变化（`takes`）；合计（`total`） |
+| `progress.go` | `Progressed`：行的进度变了之后发订单事件，每行都收足或验收足时完成（PO12） |
 | `orders.go` | `CreateOrder`、`GetOrder`、`UpdateOrder`、`ReviseOrder`（共用 `change`、`header`、`finish`）；`Action`（提交时重新取证 `again`，政策不要审批时直接批准 `submitted`）；`ListOrders` 与列表的定义 |
 
 ## 依赖与被依赖
 
 - 依赖：`core`、`masterdata`、`orgunits`（`Usable`）、`policies`（`Of`）、`requisitions`（`Apply`、`Take`）。
-- 被依赖：入口登记路由。
+- 被依赖：`receipts`（`Read`、`Get`、`Lifecycle`、`Progressed`、`OrderFacts`）；入口登记路由。
 
 ## 规则在哪
 

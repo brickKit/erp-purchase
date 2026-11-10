@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	core "github.com/brickKit/erp-purchase/v3/internal/core"
+	receipts "github.com/brickKit/erp-purchase/v3/internal/receipts"
 	requisitions "github.com/brickKit/erp-purchase/v3/internal/requisitions"
 
 	"github.com/brickKit/be-sdk-go/v3/httpx"
@@ -54,6 +55,12 @@ func TestThePayloadsFitTheirSchemas(t *testing.T) {
 				Product: requisitions.Product{Code: "P-1", Name: "螺丝", Unit: "EA"}, Quantity: "2", Unit: "BX",
 				NeededDate: &needed, Ordered: "0"}},
 			Version: 3, UpdatedAt: "2026-10-20T08:00:00.000000Z"},
+		core.ReceiptChanged: receipts.Receipt{ID: "01a15ab0-0000-7000-8000-0000000000ab", Number: "GR-SH-2026-000001",
+			OrderID: "01a15ab0-0000-7000-8000-0000000000ac", OrderRevision: 2, LegalEntityID: le,
+			WarehouseID: "01a15ab0-0000-7000-8000-0000000000b1", State: "failed", Reason: &reason, BusinessDate: needed,
+			Lines: []receipts.Line{{ID: "01a15ab0-0000-7000-8000-0000000000d2", OrderLineID: "01a15ab0-0000-7000-8000-0000000000d3",
+				Quantity: "2", BaseQuantity: "24", Serials: []string{}, MovementIDs: []string{"01a15ab0-0000-7000-8000-0000000000d4"}}},
+			Version: 2, UpdatedAt: "2026-10-20T08:00:00.000000Z"},
 	} {
 		validate(t, typ, v)
 	}

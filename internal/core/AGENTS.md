@@ -13,7 +13,7 @@
 | --- | --- |
 | `base.go` | `Base`：组件的运行时，每个模块函数的第一个参数 |
 | `names.go` | 常量；`DepartmentTables`；`fields`、`scoped`、`Definitions()`（每种资源的维度与字段）。列表能排序、筛选的字段要在这里它的资源下声明，不声明 SDK 就答 `FIELD_NOT_QUERYABLE` |
-| `rules.go` | `Err…`（本组件的原因）、表单的格式、`DocFacts`、`EntityFacts`、`Number`、`BindOptional`、`Minus`、`IDResult`、`ResultID`、`Check`、`Invalid`、`NotFound`、`Unsupported`、`Decimal`、`Change`、`Emit`、`Times` |
+| `rules.go` | `Err…`（本组件的原因）、表单的格式、`DocFacts`、`EntityFacts`、`Number`、`BindOptional`、`Minus`、`Per`、`Fact`、`IDResult`、`ResultID`、`Check`、`Invalid`、`NotFound`、`Unsupported`、`Decimal`、`Change`、`Emit`、`Times` |
 | `lifecycle.go` | 生命周期表：`Effect`、`Decision`、`Table`（`Decide`）、`Refused`、造格的 `RefuseCell`、`IgnoreCell`、`ProceedCell`、`MoveCell`；三项核对给各模块的单元测试用：`TableProblems`（每格都定了）、`DocumentProblems`（与设计文档的表逐格相同）、`UntestedRules`（每条规则都有集成测试写明） |
 
 ## 依赖与被依赖

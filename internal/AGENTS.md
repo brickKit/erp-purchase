@@ -8,6 +8,7 @@
 
 | 包 | 一句话 | 依赖（本组件内） |
 | --- | --- | --- |
+| `receipts` | 收货：经库存入库、收货计价依据与撤回、按库存的流水补齐已收、重发的工作项 | `core`、`masterdata`、`orders`、`policies` |
 | `orders` | 采购订单与它的生命周期（一张表，状态唯一的写入）；申请行转订单行的取用与退回 | `core`、`masterdata`、`orgunits`、`policies`、`requisitions` |
 | `requisitions` | 采购申请与它的生命周期（一张表，状态唯一的写入）；被订单取用的数量 | `core`、`masterdata`、`orgunits`、`policies` |
 | `policies` | 按法人的采购政策：要不要审批、超收比例 | `core` |
@@ -19,6 +20,7 @@
 
 | 层 | 包 |
 | --- | --- |
+| 6 | `receipts` |
 | 5 | `orders` |
 | 4 | `requisitions` |
 | 3 | `orgunits` |

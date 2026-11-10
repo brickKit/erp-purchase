@@ -40,6 +40,7 @@ import (
 	"github.com/brickKit/be-sdk-go/v3/launcher"
 	"github.com/brickKit/be-sdk-go/v3/runtime"
 	"github.com/brickKit/be-sdk-go/v3/sectest"
+	inventoryv3 "github.com/brickKit/erp-inventory/contract/v3/gen/go/be/erp/inventory/v3"
 	currencyv3 "github.com/brickKit/mdm-currency/contract/v3/gen/go/be/mdm/currency/v3"
 	orgv3 "github.com/brickKit/mdm-org/contract/v3/gen/go/be/mdm/org/v3"
 	partnerv3 "github.com/brickKit/mdm-partner/contract/v3/gen/go/be/mdm/partner/v3"
@@ -51,14 +52,15 @@ import (
 )
 
 const (
-	itPort     = "28085"
-	itBase     = "http://localhost:" + itPort
-	itSystem   = "localhost:9095"
-	itOrg      = "localhost:19112"
-	itPartner  = "localhost:19113"
-	itProduct  = "localhost:19114"
-	itCurrency = "localhost:19115"
-	itSchema   = "erp_purchase_it"
+	itPort      = "28085"
+	itBase      = "http://localhost:" + itPort
+	itSystem    = "localhost:9095"
+	itOrg       = "localhost:19112"
+	itPartner   = "localhost:19113"
+	itProduct   = "localhost:19114"
+	itCurrency  = "localhost:19115"
+	itInventory = "localhost:19116"
+	itSchema    = "erp_purchase_it"
 )
 
 // fixture is the running member, its stand-ins and the world's IDs, shared by the steps.
@@ -71,6 +73,7 @@ type fixture struct {
 	bob   client // a second buyer: approves what Alice submits
 	carol client // reads Beijing's requisitions only
 	org   *orgStandIn
+	inv   *inventoryStandIn
 	tr    events.Transport
 	rt    *runtime.Runtime // the member's runtime
 
@@ -88,6 +91,7 @@ func TestPurchaseEndToEnd(t *testing.T) {
 	fx.purchaseOrders()
 	fx.fromRequisitions()
 	fx.departments()
+	fx.receipts()
 }
 
 // start makes the world, the stand-ins and mdm/org's stream, then migrates and runs the member.
@@ -125,7 +129,7 @@ func start(t *testing.T) *fixture {
 		fx.le2: {"id": fx.le2, "code": "BJ", "state": "active", "timezone": "Asia/Shanghai", "base_currency": "CNY",
 			"version": int64(1)}},
 		units: map[string]map[string]any{fx.d1: fx.unit(fx.d1, fx.le+"/"+fx.d1, 1), fx.d2: fx.unit(fx.d2, fx.le+"/"+fx.d2, 1)}}
-	portFree(t, itPort, itSystem, itOrg, itPartner, itProduct, itCurrency)
+	portFree(t, itPort, itSystem, itOrg, itPartner, itProduct, itCurrency, itInventory)
 	serve(t, itOrg, w, core.Org, func(s *grpc.Server) { orgv3.RegisterSourceServiceServer(s, fx.org) })
 	serve(t, itPartner, w, core.Partner, func(s *grpc.Server) {
 		p := &partnerStandIn{names: map[string]string{fx.sup: "上海供应商", fx.blocked: "暂停的供应商"},
@@ -141,6 +145,8 @@ func start(t *testing.T) *fixture {
 		productv3.RegisterSourceServiceServer(s, p)
 		productv3.RegisterProductServiceServer(s, p)
 	})
+	fx.inv = &inventoryStandIn{received: map[string][]string{}, calls: map[string]int{}, publish: fx.publishMovement}
+	serve(t, itInventory, w, core.Inventory, func(s *grpc.Server) { inventoryv3.RegisterStockServiceServer(s, fx.inv) })
 	serve(t, itCurrency, w, core.Currency, func(s *grpc.Server) {
 		currencyv3.RegisterSourceServiceServer(s, currencyStandIn{})
 	})
@@ -150,7 +156,7 @@ func start(t *testing.T) *fixture {
 	// at epoch 2.1). A clean stream each run.
 	js, err := jetstream.Connect(natsURL, "purchase-it-clean")
 	require.NoError(t, err)
-	for _, s := range []string{orgStream.Name, core.Stream} {
+	for _, s := range []string{orgStream.Name, invStream.Name, core.Stream} {
 		_ = js.DeleteStream(ctx, s) // not there: nothing to clean
 	}
 	_ = js.Close()
@@ -159,6 +165,7 @@ func start(t *testing.T) *fixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { fx.tr.Close() })
 	require.NoError(t, fx.tr.EnsureStream(ctx, orgStream))
+	require.NoError(t, fx.tr.EnsureStream(ctx, invStream))
 
 	env := w.Env(t, core.ID)
 	for k, v := range map[string]string{"COMPONENT_ID": core.ID, "COMPONENT_VERSION": purchase.Version, "PORT": itPort,
@@ -166,7 +173,8 @@ func start(t *testing.T) *fixture {
 		"PG_USER": u.User.Username(), "PG_PASSWORD": pw, "PG_SCHEMA": itSchema, "PG_OWNER_USER": u.User.Username(),
 		"PG_OWNER_PASSWORD": pw, "BUS_URL": natsURL, "IMPLEMENTATION_INSTANCE": ids.New().String(),
 		"MDM_ORG_GRPC_ENDPOINT": "http://" + itOrg, "MDM_PARTNER_GRPC_ENDPOINT": "http://" + itPartner,
-		"MDM_PRODUCT_GRPC_ENDPOINT": "http://" + itProduct, "MDM_CURRENCY_GRPC_ENDPOINT": "http://" + itCurrency} {
+		"MDM_PRODUCT_GRPC_ENDPOINT": "http://" + itProduct, "MDM_CURRENCY_GRPC_ENDPOINT": "http://" + itCurrency,
+		"ERP_INVENTORY_GRPC_ENDPOINT": "http://" + itInventory} {
 		env[k] = v
 	}
 	var logs bytes.Buffer
@@ -205,7 +213,10 @@ func start(t *testing.T) *fixture {
 	return fx
 }
 
-var orgStream = events.Stream{Name: core.OrgStream, Partitions: 4}
+var (
+	orgStream = events.Stream{Name: core.OrgStream, Partitions: 4}
+	invStream = events.Stream{Name: core.InventoryStream, Partitions: 4}
+)
 
 // carol is a user who reads Beijing's requisitions and nothing else.
 const carol = "0190f3a1-0000-7000-8000-0000000000c3"
@@ -312,6 +323,18 @@ func (fx *fixture) publishOrg(typ, id string, version int64, kind events.Project
 	row.Digest = events.Digest(row.EventID, data)
 	require.NoError(fx.t, fx.tr.Publish(fx.ctx, events.Message{Subject: events.Subject(orgStream.Name, row.Partition, row.Type),
 		Headers: row.Headers(core.Org, orgStamp.GetInstance()), Data: data}))
+}
+
+// publishMovement publishes erp.inventory_movement.recorded.v1 as erp/inventory's forwarder would.
+func (fx *fixture) publishMovement(mv map[string]any) {
+	data, _ := json.Marshal(mv)
+	id := mv["fact_id"].(string)
+	row := events.Row{EventID: ids.New().String(), Stream: invStream.Name, Partition: invStream.PartitionOf(id),
+		Type: core.MovementRecorded, OccurredAt: time.Now(), RecordID: id, Version: 1, Projection: events.Full,
+		Payload: data, Seq: time.Now().UnixNano(), Epoch: events.Epoch{Generation: 1, Timeline: 1}}
+	row.Digest = events.Digest(row.EventID, data)
+	require.NoError(fx.t, fx.tr.Publish(fx.ctx, events.Message{Subject: events.Subject(invStream.Name, row.Partition, row.Type),
+		Headers: row.Headers(core.Inventory, "inventory-it"), Data: data}))
 }
 
 type lockedWriter struct {

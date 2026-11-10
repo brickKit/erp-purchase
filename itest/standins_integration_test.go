@@ -12,10 +12,14 @@ import (
 	core "github.com/brickKit/erp-purchase/v3/internal/core"
 
 	"github.com/brickKit/be-sdk-go/v3/errs"
+	"github.com/brickKit/be-sdk-go/v3/ids"
+	inventoryv3 "github.com/brickKit/erp-inventory/contract/v3/gen/go/be/erp/inventory/v3"
 	currencyv3 "github.com/brickKit/mdm-currency/contract/v3/gen/go/be/mdm/currency/v3"
 	orgv3 "github.com/brickKit/mdm-org/contract/v3/gen/go/be/mdm/org/v3"
 	partnerv3 "github.com/brickKit/mdm-partner/contract/v3/gen/go/be/mdm/partner/v3"
 	productv3 "github.com/brickKit/mdm-product/contract/v3/gen/go/be/mdm/product/v3"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // --- mdm/org: legal entities and departments ---
@@ -158,4 +162,65 @@ func (currencyStandIn) Read(_ context.Context, in *currencyv3.ReadRequest) (*cur
 		out.Results = append(out.Results, r)
 	}
 	return out, nil
+}
+
+// --- erp/inventory: purchase receipts and returns ---
+
+// inventoryStandIn takes purchase receipts as erp/inventory's StockService does: idempotent by the receipt's ID, one
+// movement per line carrying the receipt line's ID, each published as erp.inventory_movement.recorded.v1 (its
+// forwarder). The mode drives the receipt's outcomes: "" answers, "refuse" refuses (nothing taken in), "lost" takes
+// it in and loses the answer, "down" answers nothing.
+type inventoryStandIn struct {
+	inventoryv3.UnimplementedStockServiceServer
+	mu       sync.Mutex
+	mode     string
+	received map[string][]string // receipt ID → its movements
+	calls    map[string]int      // Receive calls per receipt
+	publish  func(movement map[string]any)
+}
+
+func (s *inventoryStandIn) set(mode string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.mode = mode
+}
+
+func (s *inventoryStandIn) callsOf(receipt string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.calls[receipt]
+}
+
+var warehouseNotUsable = errs.Define(core.Inventory, "WAREHOUSE_NOT_USABLE", errs.FailedPrecondition, 409, errs.RetryNo,
+	"The warehouse is not usable")
+
+func (s *inventoryStandIn) Receive(_ context.Context, in *inventoryv3.ReceiveRequest) (*inventoryv3.ReceiveResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.calls[in.GetReceiptId()]++
+	switch s.mode {
+	case "down":
+		return nil, status.Error(codes.Unavailable, "the stand-in is down")
+	case "refuse":
+		return nil, warehouseNotUsable.New("warehouse " + in.GetWarehouseId() + " is closed")
+	}
+	mvs, seen := s.received[in.GetReceiptId()]
+	if !seen {
+		for _, l := range in.GetLines() {
+			id := ids.New().String()
+			mvs = append(mvs, id)
+			s.publish(map[string]any{"fact_id": id, "kind": "receipt", "product_id": l.GetProductId(),
+				"warehouse_id": in.GetWarehouseId(), "legal_entity_id": in.GetLegalEntityId(), "quantity": l.GetQuantity(),
+				"batch": nil, "serials": []string{}, "business_date": in.GetBusinessDate(),
+				"reference": map[string]any{"kind": in.GetReference().GetKind(), "id": in.GetReference().GetId(),
+					"line_id": l.GetLineId()},
+				"branch_id": nil, "consumption_id": nil, "inventory_seq": map[string]any{"epoch": "1.1", "seq": 1},
+				"valuation_seq": map[string]any{"epoch": "1.1", "seq": 1}, "recorded_at": "2026-11-10T08:00:00.000000Z"})
+		}
+		s.received[in.GetReceiptId()] = mvs
+	}
+	if s.mode == "lost" {
+		return nil, status.Error(codes.Unavailable, "the answer was lost")
+	}
+	return &inventoryv3.ReceiveResponse{ReceiptId: in.GetReceiptId(), MovementIds: mvs}, nil
 }

@@ -8,6 +8,7 @@ import (
 	orders "github.com/brickKit/erp-purchase/v3/internal/orders"
 	orgunits "github.com/brickKit/erp-purchase/v3/internal/orgunits"
 	policies "github.com/brickKit/erp-purchase/v3/internal/policies"
+	receipts "github.com/brickKit/erp-purchase/v3/internal/receipts"
 	requisitions "github.com/brickKit/erp-purchase/v3/internal/requisitions"
 
 	"github.com/brickKit/be-sdk-go/v3/db"
@@ -53,9 +54,10 @@ func (m *Module) Routes(r *httpx.Routes) error {
 	add("POST", "/api/purchase/orders/:id/revise", core.OpOrderEdit, h(orders.ReviseOrder))
 	add("POST", "/api/purchase/orders/:id/close", core.OpOrderEdit, orders.Action(m.b, orders.Close))
 	add("POST", "/api/purchase/orders/:id/cancel", core.OpOrderEdit, orders.Action(m.b, orders.Cancel))
-	add("POST", "/api/purchase/orders/:id/receipts", core.OpReceiptCreate, todo)
-	add("GET", "/api/purchase/receipts", core.OpReceiptRead, todo)
-	add("GET", "/api/purchase/receipts/:id", core.OpReceiptRead, todo)
+	r.Add(httpx.Route{Method: "POST", Path: "/api/purchase/orders/:id/receipts", Operation: core.OpReceiptCreate,
+		Orchestration: true, Handle: h(receipts.CreateReceipt)})
+	add("GET", "/api/purchase/receipts", core.OpReceiptRead, h(receipts.ListReceipts))
+	add("GET", "/api/purchase/receipts/:id", core.OpReceiptRead, h(receipts.GetReceipt))
 	add("POST", "/api/purchase/orders/:id/acceptances", core.OpReceiptCreate, todo)
 	add("GET", "/api/purchase/acceptances/:id", core.OpReceiptRead, todo)
 	add("POST", "/api/purchase/orders/:id/returns", core.OpReturnEdit, todo)
@@ -69,15 +71,21 @@ func (m *Module) Routes(r *httpx.Routes) error {
 	return nil
 }
 
-// Subscriptions declares the department projection's input (protocol 02).
+// Subscriptions declares the department projection's input (protocol 02) and erp/inventory's movements, the only
+// source of the received quantities.
 func (m *Module) Subscriptions(s *events.Subscriptions) error {
 	s.Add(events.Sub{Name: "org-unit-events", Streams: []string{core.OrgStream}, Types: []string{core.OrgUnitEvents},
 		Handle: m.received(orgunits.OnOrgUnit)})
+	s.Add(events.Sub{Name: "inventory-movements", Streams: []string{core.InventoryStream}, Types: []string{core.MovementRecorded},
+		Handle: m.received(receipts.OnMovement)})
 	return nil
 }
 
 // Jobs declares the background work (protocol 01).
 func (m *Module) Jobs(j *work.Jobs) error {
+	// a receipt is sent until erp/inventory answers: only it knows whether the goods came in
+	j.Add(work.Job{Name: receipts.JobReceive, Kind: work.Queue, Effect: work.IdempotentExternal, MaxAttempts: work.Unlimited,
+		Handle: m.job(receipts.ReceiveJob)})
 	j.Add(work.Job{Name: "align-org-units", Kind: work.Singleton, Effect: work.Local, Interval: time.Hour,
 		MaxAttempts: work.Unlimited, Handle: m.job(orgunits.AlignOrgUnits)})
 	j.Add(work.Job{Name: orgunits.JobRepairOrgUnits, Kind: work.Queue, Effect: work.IdempotentExternal,

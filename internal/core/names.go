@@ -79,6 +79,7 @@ const (
 // Parameters (protocol 07, protocol 14).
 const (
 	EvidenceW     = 30 * time.Second // how long an eligibility answer is evidence
+	SyncBudget    = 3 * time.Second  // how long a receipt or a return waits for erp/inventory before answering 202
 	MaxLines      = 500
 	MaxReadIDs    = 500
 	PriceScale    = 6 // unit prices: NUMERIC(19,6)
@@ -87,7 +88,7 @@ const (
 
 // DepartmentTables are the tables that copy their department's path (internal/orgunits rewrites them when a
 // department moves).
-var DepartmentTables = []string{"requisition", "purchase_order"}
+var DepartmentTables = []string{"requisition", "purchase_order", "receipt"}
 
 func fields(names ...string) map[string]sdkauthz.Field {
 	out := map[string]sdkauthz.Field{}
@@ -111,6 +112,10 @@ func scoped(owner string) map[string]sdkauthz.Dimension {
 var RequisitionFields = []string{"id", "number", "legal_entity_id", "department_id", "requester_id", "state", "reason",
 	"lines", "version", "updated_at", "created_at"}
 
+// ReceiptFields are what a receipt list may filter and sort on.
+var ReceiptFields = []string{"id", "number", "order_id", "order_revision", "legal_entity_id", "warehouse_id", "state",
+	"reason", "business_date", "lines", "version", "updated_at", "created_at"}
+
 // OrderFields are what an order list may filter and sort on.
 var OrderFields = []string{"id", "number", "legal_entity_id", "supplier_id", "supplier", "currency", "business_date",
 	"owner_id", "department_id", "state", "revision", "total", "submitted_by", "approved_by", "reason", "lines",
@@ -129,7 +134,7 @@ func Definitions() *sdkauthz.Definitions {
 		Resources: []sdkauthz.Resource{
 			{Type: Requisitions, ViewOperation: OpReqRead, Dimensions: scoped("requester_id"), Fields: fields(RequisitionFields...)},
 			{Type: Orders, ViewOperation: OpOrderRead, Dimensions: scoped("owner_id"), Fields: fields(OrderFields...)},
-			{Type: Receipts, ViewOperation: OpReceiptRead, Dimensions: scoped("owner_id"), Fields: fields("id")},
+			{Type: Receipts, ViewOperation: OpReceiptRead, Dimensions: scoped("owner_id"), Fields: fields(ReceiptFields...)},
 			{Type: Returns, ViewOperation: OpReturnRead, Dimensions: scoped("owner_id"), Fields: fields("id")},
 			{Type: Policies, ViewOperation: OpPolicyRead,
 				Dimensions: map[string]sdkauthz.Dimension{DimLegalEntity: {Kind: sdkauthz.ValueSet, Column: "legal_entity_id"}},

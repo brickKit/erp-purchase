@@ -6,7 +6,7 @@
 
 - `make test-integration`（`go test -count=1 -tags integration ./itest/`）。
 - 环境变量：`BE_SDK_TEST_PG_ADMIN=postgres://postgres:<口令>@localhost:5432/brickkit_test_db`（口令是装配项目 `.env` 的 `POSTGRES_PASSWORD`）、`BE_SDK_TEST_NATS_URL=nats://localhost:4222`；be-sdk-go 的 `sectest` 是测试部署。
-- 前提：装配项目里 `make up` 起了 `be-postgres` 与 `be-nats`；`be-postgres` 里有库 `brickkit_test_db`；测试每次开始时删掉再建自己的 schema `erp_purchase_it`，跑完留着；端口 28085（用户面）、9095（系统面）与替身的 19112–19115 要空着，被占时测试直接失败。
+- 前提：装配项目里 `make up` 起了 `be-postgres` 与 `be-nats`；`be-postgres` 里有库 `brickkit_test_db`；测试每次开始时删掉再建自己的 schema `erp_purchase_it`，跑完留着；端口 28085（用户面）、9095（系统面）与替身的 19112–19116 要空着，被占时测试直接失败。
 - **只有一个测试** `TestPurchaseEndToEnd`：它按下表的顺序跑各步；改了哪个流程就跑整个（`-run TestPurchaseEndToEnd`）。
 
 ## 文件
@@ -19,14 +19,15 @@
 | `policies_integration_test.go` | `policies` | 政策的起始值、按版本设置（旧版本被拒）、格式不对的值、看不见答 404；北京设成不要审批 | PR02、PO03 的前提 | `policies` |
 | `requisitions_integration_test.go` | `requisitions` | 申请：新建（产品不可采购、单位不能换算、别的法人的部门被拒）、按版本修改、提交、提交人不能批准、批准再批准、驳回要原因、三种状态下取消、北京提交即批准；看不见答 404，列表按状态与单号，只看北京的人只列北京的 | PR01–PR05 | `requisitions`、`policies`、`orgunits` |
 | `orders_integration_test.go` | `purchaseOrders`、`fromRequisitions` | 订单：新建（供应商暂停、币种不认识、库存物资行没仓库被拒）、按版本修改、提交、驳回要原因、提交人不能批准、修订（保留行、改单价与数量、换供应商或换产品被拒）、北京提交即批准、关闭、三种状态下取消；列表按供应商、状态与单号。申请行转订单行：取用、草稿改数量、超出被拒、全部转完关闭、取消订单退回后重开、不能用的申请行 | PO01–PO06、PO10、PO11；PR05、PR06 | `orders`、`requisitions` |
+| `receipts_integration_test.go` | `receipts` | 收货：过账与收货计价依据（每基本单位）、超收比例（上海 10%、北京 0%，收货中计入）、收足即完成、库存不答复（202、关闭与取消被拒、工作项重发后过账）、答复丢失由流水事件补齐且只算一次、库存拒绝（失败、撤回计价依据）、服务行与草稿订单不能收货、收货中没有时关闭 | PO07、PO10、PO11、PO12；协议 05b 的计价依据与撤回 | `receipts`、`orders` |
 | `departments_integration_test.go` | `departments`、`laterOrgEvents` | 按部门维度读订单与申请；部门移到另一部门之下，它们跟着走；不认识的动作标为不完整并补取，同一流上的法人不是部门 | 安全 07；P6.33、PJ36 | `orgunits`、`orders`、`requisitions` |
 
 共用的：
 
 | 文件 | 内容 |
 | --- | --- |
-| `endtoend_integration_test.go` | `TestPurchaseEndToEnd`（各步的顺序）；`fixture`（运行中的成员、替身、世界的 ID：上海与北京两个法人，Alice 与 Bob 两个采购员，只看北京申请的 Carol；`departments` 步里加的 Dave 只看部门 1 的树）；辅助：申请与订单的建、动作与“被状态拒绝”（各在自己的文件）；`start`（建世界、替身与 `mdm/org` 的流，迁移并运行成员）；辅助：`client.do`（新的幂等键）、`at`、`get`、`unit`、`publishOrgUnit`、`publishOrg`、`portFree` |
-| `standins_integration_test.go` | 替身，各按已发布的契约经 mTLS 答：四个主数据组件（供应商一个可用、一个暂停；产品一个库存物资、12 EA 一盒，一个服务）；测试自己扮演 `mdm/org` 发部门事件 |
+| `endtoend_integration_test.go` | `TestPurchaseEndToEnd`（各步的顺序）；`fixture`（运行中的成员、替身、世界的 ID：上海与北京两个法人，Alice 与 Bob 两个采购员，只看北京申请的 Carol；`departments` 步里加的 Dave 只看部门 1 的树）；辅助：申请与订单的建、动作与“被状态拒绝”（各在自己的文件）；`start`（建世界、替身与 `mdm/org` 的流，迁移并运行成员）；辅助：`client.do`（新的幂等键）、`at`、`get`、`unit`、`publishOrgUnit`、`publishOrg`、`publishMovement`、`portFree` |
+| `standins_integration_test.go` | 替身，各按已发布的契约经 mTLS 答：四个主数据组件（供应商一个可用、一个暂停；产品一个库存物资、12 EA 一盒，一个服务）；测试自己扮演 `mdm/org` 发部门事件；库存的 `StockService.Receive` 按收货身份幂等，每行一条流水并作为 `erp.inventory_movement.recorded.v1` 发出（测试替它的转发），可以设成拒绝、答复丢失、不可达 |
 
 ## 加测试
 
