@@ -16,7 +16,7 @@
 ## 依赖与被依赖
 
 - 依赖：`core`。
-- 被依赖：`orgunits`。
+- 被依赖：`orgunits`、`requisitions`。
 
 ## 规则在哪
 
@@ -24,4 +24,4 @@
 
 ## 测试
 
-由各流程间接覆盖（P3b 起）。
+由各流程间接覆盖：`itest/requisitions_integration_test.go`（产品不可采购、单位不能换算被拒）。

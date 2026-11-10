@@ -4,8 +4,8 @@
 
 ## 负责与不负责
 
-- 负责：订阅 `org-unit-events`（`OnOrgUnit`：按聚合；不认识的动作标为不完整，修复工作项取回）；按需补取（`Department`）；三个后台工作：每小时的 `align-org-units`、`repair-org-units`、组织换了纪元（整套恢复之后）立即的 `realign-org-units`（表 `org_realign` 去重）；改写 `core.DepartmentTables` 里每张表的 `department_path`（`repath`）。
-- 不负责：单据取哪个部门；维度怎样编译进查询（SDK 的列表）。
+- 负责：订阅 `org-unit-events`（`OnOrgUnit`：按聚合；不认识的动作标为不完整，修复工作项取回）；按需补取（`Department`）；单据的部门能不能用（`Usable`：存在、在用、属于单据的法人）；三个后台工作：每小时的 `align-org-units`、`repair-org-units`、组织换了纪元（整套恢复之后）立即的 `realign-org-units`（表 `org_realign` 去重）；改写 `core.DepartmentTables` 里每张表的 `department_path`（`repath`）。
+- 不负责：维度怎样编译进查询（SDK 的列表）。
 
 ## 文件
 
@@ -16,7 +16,7 @@
 ## 依赖与被依赖
 
 - 依赖：`core`、`masterdata`（`OrgUnit`、`OrgUnitRead`）。
-- 被依赖：入口登记订阅与工作。
+- 被依赖：`requisitions`（`Usable`）；入口登记订阅与工作。
 
 ## 规则在哪
 
@@ -24,4 +24,4 @@
 
 ## 测试
 
-单据有了部门之后（P3b 起）由 `itest/` 的部门流程覆盖。
+`itest/requisitions_integration_test.go`（别的法人的部门被拒）；部门移动后单据跟着走随订单（P3c）一起测。

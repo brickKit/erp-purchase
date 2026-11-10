@@ -96,6 +96,26 @@ func Department(m *core.Base, ctx context.Context, id string) (masterdata.OrgUni
 	return u, true, err
 }
 
+// Usable checks a document's department: in the projection (or mdm/org), active, of the document's legal entity. It
+// answers the department's ID and path; no department answers nils (security 07: no department never matches a
+// tree).
+func Usable(m *core.Base, ctx context.Context, id *string, legalEntity string) (*string, *string, error) {
+	if id == nil {
+		return nil, nil, nil
+	}
+	if !core.UUIDForm.MatchString(*id) {
+		return nil, nil, core.Invalid("department_id", "department_id is a department's ID")
+	}
+	u, ok, err := Department(m, ctx, *id)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !ok || u.State != "active" || u.LegalEntityID != legalEntity {
+		return nil, nil, core.ErrDepartment.New("department " + *id + " is not an active department of the legal entity")
+	}
+	return id, &u.Path, nil
+}
+
 // orgSource is mdm/org's source methods for the department aggregate, as the projection reads them.
 type orgSource struct{ m *core.Base }
 

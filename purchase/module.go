@@ -6,6 +6,8 @@ import (
 
 	core "github.com/brickKit/erp-purchase/v3/internal/core"
 	orgunits "github.com/brickKit/erp-purchase/v3/internal/orgunits"
+	policies "github.com/brickKit/erp-purchase/v3/internal/policies"
+	requisitions "github.com/brickKit/erp-purchase/v3/internal/requisitions"
 
 	"github.com/brickKit/be-sdk-go/v3/db"
 	"github.com/brickKit/be-sdk-go/v3/events"
@@ -31,14 +33,15 @@ func (m *Module) Routes(r *httpx.Routes) error {
 		r.Add(httpx.Route{Method: method, Path: path, Operation: op, Handle: h})
 	}
 	todo := core.Unsupported("this route")
-	add("GET", "/api/purchase/requisitions", core.OpReqRead, todo)
-	add("POST", "/api/purchase/requisitions", core.OpReqEdit, todo)
-	add("GET", "/api/purchase/requisitions/:id", core.OpReqRead, todo)
-	add("PATCH", "/api/purchase/requisitions/:id", core.OpReqEdit, todo)
-	add("POST", "/api/purchase/requisitions/:id/submit", core.OpReqEdit, todo)
-	add("POST", "/api/purchase/requisitions/:id/approve", core.OpReqApprove, todo)
-	add("POST", "/api/purchase/requisitions/:id/reject", core.OpReqApprove, todo)
-	add("POST", "/api/purchase/requisitions/:id/cancel", core.OpReqEdit, todo)
+	h := m.handler
+	add("GET", "/api/purchase/requisitions", core.OpReqRead, h(requisitions.ListRequisitions))
+	add("POST", "/api/purchase/requisitions", core.OpReqEdit, h(requisitions.CreateRequisition))
+	add("GET", "/api/purchase/requisitions/:id", core.OpReqRead, h(requisitions.GetRequisition))
+	add("PATCH", "/api/purchase/requisitions/:id", core.OpReqEdit, h(requisitions.UpdateRequisition))
+	add("POST", "/api/purchase/requisitions/:id/submit", core.OpReqEdit, requisitions.Action(m.b, requisitions.Submit))
+	add("POST", "/api/purchase/requisitions/:id/approve", core.OpReqApprove, requisitions.Action(m.b, requisitions.Approve))
+	add("POST", "/api/purchase/requisitions/:id/reject", core.OpReqApprove, requisitions.Action(m.b, requisitions.Reject))
+	add("POST", "/api/purchase/requisitions/:id/cancel", core.OpReqEdit, requisitions.Action(m.b, requisitions.Cancel))
 	add("GET", "/api/purchase/orders", core.OpOrderRead, todo)
 	add("POST", "/api/purchase/orders", core.OpOrderEdit, todo)
 	add("GET", "/api/purchase/orders/:id", core.OpOrderRead, todo)
@@ -57,8 +60,8 @@ func (m *Module) Routes(r *httpx.Routes) error {
 	add("POST", "/api/purchase/orders/:id/returns", core.OpReturnEdit, todo)
 	add("GET", "/api/purchase/returns", core.OpReturnRead, todo)
 	add("GET", "/api/purchase/returns/:id", core.OpReturnRead, todo)
-	add("GET", "/api/purchase/policies/:legal_entity_id", core.OpPolicyRead, todo)
-	add("PUT", "/api/purchase/policies/:legal_entity_id", core.OpPolicyManage, todo)
+	add("GET", "/api/purchase/policies/:legal_entity_id", core.OpPolicyRead, h(policies.GetPolicy))
+	add("PUT", "/api/purchase/policies/:legal_entity_id", core.OpPolicyManage, h(policies.PutPolicy))
 	// in the contract, not in this version (D75; docs/design.md, "实现状态")
 	add("POST", "/api/purchase/orders/:id/prepayments", core.OpOrderEdit, core.Unsupported("a prepayment request"))
 	add("GET", "/api/purchase/price-lists", core.OpOrderRead, core.Unsupported("supplier price lists"))
@@ -83,7 +86,11 @@ func (m *Module) Jobs(j *work.Jobs) error {
 	return nil
 }
 
-// job and received adapt a module's function, which takes the shared base first, to what the SDK registers.
+// handler, job and received adapt a module's function, which takes the shared base first, to what the SDK registers.
+func (m *Module) handler(f func(*core.Base, *httpx.Context) error) httpx.Handler {
+	return func(c *httpx.Context) error { return f(m.b, c) }
+}
+
 func (m *Module) job(f func(*core.Base, context.Context, *work.Run) error) func(context.Context, *work.Run) error {
 	return func(ctx context.Context, r *work.Run) error { return f(m.b, ctx, r) }
 }

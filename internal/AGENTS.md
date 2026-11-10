@@ -8,6 +8,8 @@
 
 | 包 | 一句话 | 依赖（本组件内） |
 | --- | --- | --- |
+| `requisitions` | 采购申请与它的生命周期（一张表，状态唯一的写入） | `core`、`masterdata`、`orgunits`、`policies` |
+| `policies` | 按法人的采购政策：要不要审批、超收比例 | `core` |
 | `orgunits` | 部门投影（协议 02） | `core`、`masterdata` |
 | `masterdata`（共用） | 事务外向主数据组件取证 | `core` |
 | `core`（共用） | 名字、资源与操作的定义、错误与校验、`Base` | — |
@@ -16,8 +18,9 @@
 
 | 层 | 包 |
 | --- | --- |
+| 4 | `requisitions` |
 | 3 | `orgunits` |
-| 2 | `masterdata` |
+| 2 | `masterdata`、`policies` |
 | 1 | `core` |
 
 核对：`go list -f '{{.Imports}}' ./internal/<包>`。
@@ -26,6 +29,7 @@
 
 - **每个模块的函数先收 `m *core.Base`**（组件的运行时：数据库、调用、事件、审计、日志），入口包的 `Module` 持有它、登记时适配；模块之间直接调对方导出的函数。
 - **名字在 `core`**：资源、操作、维度、事件类型、依赖的 ID、错误原因都在 `core/names.go`、`core/rules.go`；资源定义（`core.Definitions()`）是全组件一张表，因为列表能筛选的字段、维度的映射是按资源而不是按模块定的。
+- **生命周期是一张表**：申请（以后还有订单）在哪个状态能做什么、状态怎样变，只在它模块的 `lifecycle.go`（`core.Table`：通用的格、`Decide`、`Refused` 与三项核对在 `core/lifecycle.go`）；别处按格行事，变状态只经该模块的 `Transition`。
 - **事务外取证、事务内写**：上游调用都在 `masterdata`，在事务之前；写入、审计（`core.Change`）与发件表（`core.Emit`）同一个事务。
 
 ## 加一个模块

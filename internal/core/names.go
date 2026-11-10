@@ -87,7 +87,7 @@ const (
 
 // DepartmentTables are the tables that copy their department's path (internal/orgunits rewrites them when a
 // department moves).
-var DepartmentTables = []string{}
+var DepartmentTables = []string{"requisition"}
 
 func fields(names ...string) map[string]sdkauthz.Field {
 	out := map[string]sdkauthz.Field{}
@@ -98,14 +98,18 @@ func fields(names ...string) map[string]sdkauthz.Field {
 }
 
 // scoped are the three dimensions of requisitions, orders, receipts, acceptances and returns (the last three inherit
-// their order's).
-func scoped() map[string]sdkauthz.Dimension {
+// their order's); owner is the owner's column (a requisition's is its requester).
+func scoped(owner string) map[string]sdkauthz.Dimension {
 	return map[string]sdkauthz.Dimension{
 		DimLegalEntity: {Kind: sdkauthz.ValueSet, Column: "legal_entity_id"},
 		DimDepartment:  {Kind: sdkauthz.OrgTree, Column: "department_path"},
-		DimOwner:       {Kind: sdkauthz.Principal, Column: "owner_id", PrincipalRole: "owner"},
+		DimOwner:       {Kind: sdkauthz.Principal, Column: owner, PrincipalRole: "owner"},
 	}
 }
+
+// RequisitionFields are what a requisition list may filter and sort on.
+var RequisitionFields = []string{"id", "number", "legal_entity_id", "department_id", "requester_id", "state", "reason",
+	"lines", "version", "updated_at", "created_at"}
 
 // Definitions are the component's resources and operations.
 func Definitions() *sdkauthz.Definitions {
@@ -118,13 +122,13 @@ func Definitions() *sdkauthz.Definitions {
 	}
 	return &sdkauthz.Definitions{Component: ID,
 		Resources: []sdkauthz.Resource{
-			{Type: Requisitions, ViewOperation: OpReqRead, Dimensions: scoped(), Fields: fields("id")},
-			{Type: Orders, ViewOperation: OpOrderRead, Dimensions: scoped(), Fields: fields("id")},
-			{Type: Receipts, ViewOperation: OpReceiptRead, Dimensions: scoped(), Fields: fields("id")},
-			{Type: Returns, ViewOperation: OpReturnRead, Dimensions: scoped(), Fields: fields("id")},
+			{Type: Requisitions, ViewOperation: OpReqRead, Dimensions: scoped("requester_id"), Fields: fields(RequisitionFields...)},
+			{Type: Orders, ViewOperation: OpOrderRead, Dimensions: scoped("owner_id"), Fields: fields("id")},
+			{Type: Receipts, ViewOperation: OpReceiptRead, Dimensions: scoped("owner_id"), Fields: fields("id")},
+			{Type: Returns, ViewOperation: OpReturnRead, Dimensions: scoped("owner_id"), Fields: fields("id")},
 			{Type: Policies, ViewOperation: OpPolicyRead,
 				Dimensions: map[string]sdkauthz.Dimension{DimLegalEntity: {Kind: sdkauthz.ValueSet, Column: "legal_entity_id"}},
-				Fields:     fields("legal_entity_id")},
+				Fields:     fields("legal_entity_id", "approval", "over_receipt_percent", "version")},
 			{Type: System, ViewOperation: OpSysRead, Dimensions: map[string]sdkauthz.Dimension{},
 				Fields: map[string]sdkauthz.Field{}},
 		},

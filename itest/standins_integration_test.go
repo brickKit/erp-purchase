@@ -11,12 +11,11 @@ import (
 
 	core "github.com/brickKit/erp-purchase/v3/internal/core"
 
+	"github.com/brickKit/be-sdk-go/v3/errs"
 	currencyv3 "github.com/brickKit/mdm-currency/contract/v3/gen/go/be/mdm/currency/v3"
 	orgv3 "github.com/brickKit/mdm-org/contract/v3/gen/go/be/mdm/org/v3"
 	partnerv3 "github.com/brickKit/mdm-partner/contract/v3/gen/go/be/mdm/partner/v3"
 	productv3 "github.com/brickKit/mdm-product/contract/v3/gen/go/be/mdm/product/v3"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // --- mdm/org: legal entities and departments ---
@@ -97,6 +96,10 @@ func (p *partnerStandIn) Read(_ context.Context, in *partnerv3.ReadRequest) (*pa
 
 // --- mdm/product ---
 
+// noConversion is mdm/product's own reason, as its contract answers it.
+var noConversion = errs.Define(core.Product, "NO_CONVERSION", errs.FailedPrecondition, 409, errs.RetryNo,
+	"The unit does not convert")
+
 type productInfoIT struct {
 	Code, Name, BaseUnit string
 	Stocked              bool
@@ -120,7 +123,7 @@ func (p *productStandIn) CheckEligibility(_ context.Context, in *productv3.Check
 func (p *productStandIn) Convert(_ context.Context, in *productv3.ConvertRequest) (*productv3.ConvertResponse, error) {
 	v := p.known[in.GetProductId()]
 	if in.GetFromUnit() != "BX" || v.Box == "" || in.GetToUnit() != v.BaseUnit {
-		return nil, status.Error(codes.FailedPrecondition, "NO_CONVERSION")
+		return nil, noConversion.New("no conversion of " + in.GetFromUnit() + " to " + in.GetToUnit())
 	}
 	return &productv3.ConvertResponse{Quantity: core.Times(in.GetQuantity(), v.Box, 0), Factor: v.Box}, nil
 }

@@ -1,7 +1,10 @@
 package core
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"regexp"
 	"strconv"
 
@@ -11,6 +14,7 @@ import (
 	"github.com/brickKit/be-sdk-go/v3/errs"
 	"github.com/brickKit/be-sdk-go/v3/events"
 	"github.com/brickKit/be-sdk-go/v3/httpx"
+	"github.com/brickKit/be-sdk-go/v3/idem"
 	"github.com/brickKit/be-sdk-go/v3/identity"
 	"github.com/brickKit/be-sdk-go/v3/money"
 	apd "github.com/cockroachdb/apd/v3"
@@ -31,6 +35,9 @@ var (
 		"The currency does not exist or is not active")
 	ErrUnit = errs.Define(ID, "NO_CONVERSION", errs.FailedPrecondition, 409, errs.RetryNo,
 		"The unit does not convert to the product's base unit")
+	// PR03, PO04: an approver is not the one who submitted (by account)
+	ErrApprover = errs.Define(ID, "APPROVER_IS_SUBMITTER", errs.FailedPrecondition, 409, errs.RetryNo,
+		"The one who submitted it does not approve it")
 )
 
 var (
@@ -47,6 +54,43 @@ func DocFacts(legalEntity string, departmentPath *string, owner string) sdkauthz
 		dept = sdkauthz.Value(*departmentPath)
 	}
 	return sdkauthz.Facts{DimLegalEntity: sdkauthz.Value(legalEntity), DimDepartment: dept, DimOwner: sdkauthz.Value(owner)}
+}
+
+// EntityFacts are the facts of a record with the legal entity dimension only (the purchase policy).
+func EntityFacts(legalEntity string) sdkauthz.Facts {
+	return sdkauthz.Facts{DimLegalEntity: sdkauthz.Value(legalEntity)}
+}
+
+// Number takes a document number of a series that allows gaps: <prefix>-<legal entity code>-<year>-<six digits>
+// (prefixes PR, PO, GR, SA, RT).
+func Number(m *Base, ctx context.Context, prefix, legalEntity, code, date string) (string, error) {
+	year := date[:4]
+	n, err := m.RT.DB.NextGappedNumber(ctx, db.Series{LegalEntity: legalEntity, Code: prefix, Period: year})
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s-%s-%s-%06d", prefix, code, year, n), nil
+}
+
+// BindOptional decodes a body the contract makes optional (Versioned, Reason); no body leaves v as it is.
+func BindOptional(c *httpx.Context, v any) error {
+	body, err := c.Body()
+	if err != nil || len(bytes.TrimSpace(body)) == 0 {
+		return err
+	}
+	return c.BindJSON(v)
+}
+
+// IDResult is what an idempotent create keeps (the new record's ID); ResultID reads it back on a replay too.
+func IDResult(id string) idem.Outcome {
+	b, _ := json.Marshal(map[string]string{"id": id})
+	return idem.Outcome{Status: 200, Result: b}
+}
+
+func ResultID(out idem.Outcome) string {
+	var r struct{ ID string }
+	_ = json.Unmarshal(out.Result, &r)
+	return r.ID
 }
 
 // Check decides op on a record with the given facts and returns the context to work in and the acting principal.

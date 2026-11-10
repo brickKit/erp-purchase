@@ -30,6 +30,7 @@ import (
 
 	core "github.com/brickKit/erp-purchase/v3/internal/core"
 
+	sdkauthz "github.com/brickKit/be-sdk-go/v3/authz"
 	"github.com/brickKit/be-sdk-go/v3/component"
 	"github.com/brickKit/be-sdk-go/v3/config"
 	"github.com/brickKit/be-sdk-go/v3/events"
@@ -67,16 +68,23 @@ type fixture struct {
 	w     *sectest.World
 	admin *pgx.Conn
 	alice client
+	bob   client // a second buyer: approves what Alice submits
+	carol client // reads Beijing's requisitions only
 	org   *orgStandIn
 	tr    events.Transport
 	rt    *runtime.Runtime // the member's runtime
 
-	le, d1, d2, sup, blocked, screw, install string
+	le, le2, d1, d2, sup, blocked, screw, install string
+	year                                          string
+	// what one step leaves for the next: requisitions by letter
+	reqs map[string]map[string]any
 }
 
 func TestPurchaseEndToEnd(t *testing.T) {
 	fx := start(t)
 	fx.notInThisVersion()
+	fx.policies()
+	fx.requisitions()
 }
 
 // start makes the world, the stand-ins and mdm/org's stream, then migrates and runs the member.
@@ -97,13 +105,20 @@ func start(t *testing.T) *fixture {
 	w := sectest.New(t)
 	w.GrantAll(sectest.Alice, core.Definitions())
 
-	// one legal entity in Shanghai (code SH, base CNY), two departments, two suppliers (one suspended), a stocked
-	// product (12 EA a box) and a service
-	fx := &fixture{t: t, ctx: ctx, w: w, admin: admin, le: ids.New().String(), d1: ids.New().String(),
+	w.GrantAll(sectest.Bob, core.Definitions())
+	// two legal entities, Shanghai (code SH) and Beijing (code BJ, whose policy will ask for no approval), two
+	// departments of Shanghai, two suppliers (one suspended), a stocked product (12 EA a box) and a service
+	fx := &fixture{t: t, ctx: ctx, w: w, admin: admin, le: ids.New().String(), le2: ids.New().String(), d1: ids.New().String(),
 		d2: ids.New().String(), sup: ids.New().String(), blocked: ids.New().String(), screw: ids.New().String(),
-		install: ids.New().String()}
+		install: ids.New().String(), reqs: map[string]map[string]any{}}
+	w.Grant(carol, sdkauthz.Segment{ResourceType: core.Requisitions, Operation: core.OpReqRead,
+		Atoms: map[string]sdkauthz.Atom{core.DimLegalEntity: {Kind: "in", Values: []string{fx.le2}},
+			core.DimDepartment: {Kind: "all"}, core.DimOwner: {Kind: "all"}},
+		ReadFields: core.RequisitionFields, Valid: sdkauthz.Window{From: "2026-01-01T00:00:00Z"}})
 	fx.org = &orgStandIn{les: map[string]map[string]any{fx.le: {"id": fx.le, "code": "SH", "state": "active",
-		"timezone": "Asia/Shanghai", "base_currency": "CNY", "version": int64(1)}},
+		"timezone": "Asia/Shanghai", "base_currency": "CNY", "version": int64(1)},
+		fx.le2: {"id": fx.le2, "code": "BJ", "state": "active", "timezone": "Asia/Shanghai", "base_currency": "CNY",
+			"version": int64(1)}},
 		units: map[string]map[string]any{fx.d1: fx.unit(fx.d1, fx.le+"/"+fx.d1, 1), fx.d2: fx.unit(fx.d2, fx.le+"/"+fx.d2, 1)}}
 	portFree(t, itPort, itSystem, itOrg, itPartner, itProduct, itCurrency)
 	serve(t, itOrg, w, core.Org, func(s *grpc.Server) { orgv3.RegisterSourceServiceServer(s, fx.org) })
@@ -178,10 +193,18 @@ func start(t *testing.T) *fixture {
 		return err == nil && r.StatusCode == 200
 	}, 20*time.Second, 100*time.Millisecond)
 	fx.alice = client{t, w.Bearer(sectest.Alice)}
+	fx.bob = client{t, w.Bearer(sectest.Bob)}
+	fx.carol = client{t, w.Bearer(carol)}
+	fx.year = time.Now().In(shanghai).Format("2006")
 	return fx
 }
 
 var orgStream = events.Stream{Name: core.OrgStream, Partitions: 4}
+
+// carol is a user who reads Beijing's requisitions and nothing else.
+const carol = "0190f3a1-0000-7000-8000-0000000000c3"
+
+var shanghai, _ = time.LoadLocation("Asia/Shanghai")
 
 // --- helpers ---
 

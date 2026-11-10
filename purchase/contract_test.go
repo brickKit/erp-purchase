@@ -1,12 +1,18 @@
 package purchase
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"testing"
+
+	core "github.com/brickKit/erp-purchase/v3/internal/core"
+	requisitions "github.com/brickKit/erp-purchase/v3/internal/requisitions"
 
 	"github.com/brickKit/be-sdk-go/v3/httpx"
 	"github.com/brickKit/be-sdk-go/v3/launcher"
 	"github.com/brickKit/be-sdk-go/v3/mergesafety"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,6 +41,33 @@ func TestTheRoutesAreTheOpenAPIDocument(t *testing.T) {
 	var r httpx.Routes
 	require.NoError(t, (&Module{}).Routes(&r))
 	assert.Empty(t, httpx.OpenAPIProblems(raw, r.List()))
+}
+
+// TestThePayloadsFitTheirSchemas: what the full-state events carry is what contract/events promises.
+func TestThePayloadsFitTheirSchemas(t *testing.T) {
+	le, pr, dept := "01a15ab0-0000-7000-8000-0000000000a1", "01a15ab0-0000-7000-8000-0000000000c1", "01a15ab0-0000-7000-8000-0000000000e2"
+	needed, reason := "2026-12-01", "not this quarter"
+	for typ, v := range map[string]any{
+		core.RequisitionChanged: requisitions.Requisition{ID: "01a15ab0-0000-7000-8000-0000000000aa", Number: "PR-SH-2026-000001",
+			LegalEntityID: le, DepartmentID: &dept, RequesterID: "01a15ab0-0000-7000-8000-0000000000e1", State: "rejected",
+			Reason: &reason, Lines: []requisitions.Line{{ID: "01a15ab0-0000-7000-8000-0000000000d1", ProductID: pr,
+				Product: requisitions.Product{Code: "P-1", Name: "螺丝", Unit: "EA"}, Quantity: "2", Unit: "BX",
+				NeededDate: &needed, Ordered: "0"}},
+			Version: 3, UpdatedAt: "2026-10-20T08:00:00.000000Z"},
+	} {
+		validate(t, typ, v)
+	}
+}
+
+func validate(t *testing.T, typ string, v any) {
+	t.Helper()
+	s, err := jsonschema.NewCompiler().Compile("../contract/events/" + typ + ".schema.json")
+	require.NoError(t, err, typ)
+	b, err := json.Marshal(v)
+	require.NoError(t, err)
+	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(b))
+	require.NoError(t, err)
+	assert.NoError(t, s.Validate(doc), typ)
 }
 
 // TestTheModuleIsMergeSafe: the module is compiled into the Go core shell: the entry package and every business
