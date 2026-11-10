@@ -41,6 +41,7 @@ type Acceptance struct {
 	LegalEntityID string `json:"legal_entity_id"`
 	BusinessDate  string `json:"business_date"`
 	AcceptedBy    string `json:"accepted_by"`
+	Version       int64  `json:"version"` // always 1: an acceptance never changes
 	Lines         []Line `json:"lines"`
 
 	OwnerID        string  `json:"-"`
@@ -223,7 +224,7 @@ func GetAcceptance(m *core.Base, c *httpx.Context) error {
 }
 
 func get(ctx context.Context, tx db.Tx, id string) (Acceptance, error) {
-	var a Acceptance
+	a := Acceptance{Version: 1}
 	var lines []byte
 	err := tx.QueryRow(ctx, `SELECT a.id::text, a.number, a.order_id::text, a.legal_entity_id::text,
 		a.business_date::text, a.accepted_by, a.owner_id, a.department_path,

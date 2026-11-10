@@ -15,14 +15,18 @@ import (
 
 	"github.com/brickKit/be-sdk-go/v3/db"
 	"github.com/brickKit/be-sdk-go/v3/events"
+	"github.com/brickKit/be-sdk-go/v3/grpcx"
 	"github.com/brickKit/be-sdk-go/v3/httpx"
 	"github.com/brickKit/be-sdk-go/v3/runtime"
 	"github.com/brickKit/be-sdk-go/v3/work"
+	purchasev3 "github.com/brickKit/erp-purchase/contract/v3/gen/go/be/erp/purchase/v3"
 )
 
 // Module is the purchase component as the launcher and the shells run it: it only assembles the business modules
 // under internal/ (their map is internal/AGENTS.md).
 type Module struct {
+	purchasev3.UnimplementedMatchServiceServer
+	purchasev3.UnimplementedFactServiceServer
 	b *core.Base
 }
 
@@ -70,6 +74,15 @@ func (m *Module) Routes(r *httpx.Routes) error {
 	// in the contract, not in this version (D75; docs/design.md, "实现状态")
 	add("POST", "/api/purchase/orders/:id/prepayments", core.OpOrderEdit, core.Unsupported("a prepayment request"))
 	add("GET", "/api/purchase/price-lists", core.OpOrderRead, core.Unsupported("supplier price lists"))
+	return nil
+}
+
+// Services registers the system surface: the match basis for erp/finance, the facts by identity for any component.
+func (m *Module) Services(s *grpcx.Services) error {
+	s.Register(&purchasev3.MatchService_ServiceDesc, m, map[string]grpcx.Method{
+		"Basis": {Operation: core.OpSysRead, Callers: []string{core.Finance}}})
+	s.Register(&purchasev3.FactService_ServiceDesc, m, map[string]grpcx.Method{
+		"Read": {Operation: core.OpSysRead, Callers: []string{grpcx.AnyComponent}}})
 	return nil
 }
 

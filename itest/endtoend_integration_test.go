@@ -94,6 +94,9 @@ func TestPurchaseEndToEnd(t *testing.T) {
 	fx.receipts()
 	fx.acceptances()
 	fx.returns()
+	fx.systemSurface()
+	fx.outbox()
+	fx.recoveryChecks()
 }
 
 // start makes the world, the stand-ins and mdm/org's stream, then migrates and runs the member.

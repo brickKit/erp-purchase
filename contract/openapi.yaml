@@ -382,6 +382,7 @@ components:
         legal_entity_id: {type: string, format: uuid}
         business_date: {type: string, format: date}
         accepted_by: {type: string}
+        version: {type: integer, minimum: 1, description: 'always 1: an acceptance never changes (alpha.2)'}
         lines:
           type: array
           items:
