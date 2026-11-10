@@ -4,12 +4,14 @@ import (
 	"context"
 	"time"
 
+	acceptances "github.com/brickKit/erp-purchase/v3/internal/acceptances"
 	core "github.com/brickKit/erp-purchase/v3/internal/core"
 	orders "github.com/brickKit/erp-purchase/v3/internal/orders"
 	orgunits "github.com/brickKit/erp-purchase/v3/internal/orgunits"
 	policies "github.com/brickKit/erp-purchase/v3/internal/policies"
 	receipts "github.com/brickKit/erp-purchase/v3/internal/receipts"
 	requisitions "github.com/brickKit/erp-purchase/v3/internal/requisitions"
+	returns "github.com/brickKit/erp-purchase/v3/internal/returns"
 
 	"github.com/brickKit/be-sdk-go/v3/db"
 	"github.com/brickKit/be-sdk-go/v3/events"
@@ -34,7 +36,6 @@ func (m *Module) Routes(r *httpx.Routes) error {
 	add := func(method, path, op string, h httpx.Handler) {
 		r.Add(httpx.Route{Method: method, Path: path, Operation: op, Handle: h})
 	}
-	todo := core.Unsupported("this route")
 	h := m.handler
 	add("GET", "/api/purchase/requisitions", core.OpReqRead, h(requisitions.ListRequisitions))
 	add("POST", "/api/purchase/requisitions", core.OpReqEdit, h(requisitions.CreateRequisition))
@@ -58,11 +59,12 @@ func (m *Module) Routes(r *httpx.Routes) error {
 		Orchestration: true, Handle: h(receipts.CreateReceipt)})
 	add("GET", "/api/purchase/receipts", core.OpReceiptRead, h(receipts.ListReceipts))
 	add("GET", "/api/purchase/receipts/:id", core.OpReceiptRead, h(receipts.GetReceipt))
-	add("POST", "/api/purchase/orders/:id/acceptances", core.OpReceiptCreate, todo)
-	add("GET", "/api/purchase/acceptances/:id", core.OpReceiptRead, todo)
-	add("POST", "/api/purchase/orders/:id/returns", core.OpReturnEdit, todo)
-	add("GET", "/api/purchase/returns", core.OpReturnRead, todo)
-	add("GET", "/api/purchase/returns/:id", core.OpReturnRead, todo)
+	add("POST", "/api/purchase/orders/:id/acceptances", core.OpReceiptCreate, h(acceptances.CreateAcceptance))
+	add("GET", "/api/purchase/acceptances/:id", core.OpReceiptRead, h(acceptances.GetAcceptance))
+	r.Add(httpx.Route{Method: "POST", Path: "/api/purchase/orders/:id/returns", Operation: core.OpReturnEdit,
+		Orchestration: true, Handle: h(returns.CreateReturn)})
+	add("GET", "/api/purchase/returns", core.OpReturnRead, h(returns.ListReturns))
+	add("GET", "/api/purchase/returns/:id", core.OpReturnRead, h(returns.GetReturn))
 	add("GET", "/api/purchase/policies/:legal_entity_id", core.OpPolicyRead, h(policies.GetPolicy))
 	add("PUT", "/api/purchase/policies/:legal_entity_id", core.OpPolicyManage, h(policies.PutPolicy))
 	// in the contract, not in this version (D75; docs/design.md, "实现状态")
@@ -86,6 +88,8 @@ func (m *Module) Jobs(j *work.Jobs) error {
 	// a receipt is sent until erp/inventory answers: only it knows whether the goods came in
 	j.Add(work.Job{Name: receipts.JobReceive, Kind: work.Queue, Effect: work.IdempotentExternal, MaxAttempts: work.Unlimited,
 		Handle: m.job(receipts.ReceiveJob)})
+	j.Add(work.Job{Name: returns.JobReturn, Kind: work.Queue, Effect: work.IdempotentExternal, MaxAttempts: work.Unlimited,
+		Handle: m.job(returns.ReturnJob)})
 	j.Add(work.Job{Name: "align-org-units", Kind: work.Singleton, Effect: work.Local, Interval: time.Hour,
 		MaxAttempts: work.Unlimited, Handle: m.job(orgunits.AlignOrgUnits)})
 	j.Add(work.Job{Name: orgunits.JobRepairOrgUnits, Kind: work.Queue, Effect: work.IdempotentExternal,

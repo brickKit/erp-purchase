@@ -88,7 +88,7 @@ const (
 
 // DepartmentTables are the tables that copy their department's path (internal/orgunits rewrites them when a
 // department moves).
-var DepartmentTables = []string{"requisition", "purchase_order", "receipt"}
+var DepartmentTables = []string{"requisition", "purchase_order", "receipt", "acceptance", "purchase_return"}
 
 func fields(names ...string) map[string]sdkauthz.Field {
 	out := map[string]sdkauthz.Field{}
@@ -116,6 +116,10 @@ var RequisitionFields = []string{"id", "number", "legal_entity_id", "department_
 var ReceiptFields = []string{"id", "number", "order_id", "order_revision", "legal_entity_id", "warehouse_id", "state",
 	"reason", "business_date", "lines", "version", "updated_at", "created_at"}
 
+// ReturnFields are what a return list may filter and sort on.
+var ReturnFields = []string{"id", "number", "order_id", "legal_entity_id", "reason", "business_date", "lines", "version",
+	"updated_at", "created_at"}
+
 // OrderFields are what an order list may filter and sort on.
 var OrderFields = []string{"id", "number", "legal_entity_id", "supplier_id", "supplier", "currency", "business_date",
 	"owner_id", "department_id", "state", "revision", "total", "submitted_by", "approved_by", "reason", "lines",
@@ -135,7 +139,7 @@ func Definitions() *sdkauthz.Definitions {
 			{Type: Requisitions, ViewOperation: OpReqRead, Dimensions: scoped("requester_id"), Fields: fields(RequisitionFields...)},
 			{Type: Orders, ViewOperation: OpOrderRead, Dimensions: scoped("owner_id"), Fields: fields(OrderFields...)},
 			{Type: Receipts, ViewOperation: OpReceiptRead, Dimensions: scoped("owner_id"), Fields: fields(ReceiptFields...)},
-			{Type: Returns, ViewOperation: OpReturnRead, Dimensions: scoped("owner_id"), Fields: fields("id")},
+			{Type: Returns, ViewOperation: OpReturnRead, Dimensions: scoped("owner_id"), Fields: fields(ReturnFields...)},
 			{Type: Policies, ViewOperation: OpPolicyRead,
 				Dimensions: map[string]sdkauthz.Dimension{DimLegalEntity: {Kind: sdkauthz.ValueSet, Column: "legal_entity_id"}},
 				Fields:     fields("legal_entity_id", "approval", "over_receipt_percent", "version")},

@@ -175,7 +175,8 @@ type inventoryStandIn struct {
 	mu       sync.Mutex
 	mode     string
 	received map[string][]string // receipt ID → its movements
-	calls    map[string]int      // Receive calls per receipt
+	returned map[string]string   // return line ID → its movement
+	calls    map[string]int      // Receive and Return calls per receipt and return line
 	publish  func(movement map[string]any)
 }
 
@@ -223,4 +224,26 @@ func (s *inventoryStandIn) Receive(_ context.Context, in *inventoryv3.ReceiveReq
 		return nil, status.Error(codes.Unavailable, "the answer was lost")
 	}
 	return &inventoryv3.ReceiveResponse{ReceiptId: in.GetReceiptId(), MovementIds: mvs}, nil
+}
+
+var returnNotPossible = errs.Define(core.Inventory, "RETURN_NOT_POSSIBLE", errs.FailedPrecondition, 409, errs.RetryNo,
+	"The return is not possible")
+
+// Return issues a purchase return line, idempotent by its ID; the mode as for Receive ("lost" is not used).
+func (s *inventoryStandIn) Return(_ context.Context, in *inventoryv3.ReturnRequest) (*inventoryv3.ReturnResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.calls[in.GetReturnId()]++
+	switch s.mode {
+	case "down":
+		return nil, status.Error(codes.Unavailable, "the stand-in is down")
+	case "refuse":
+		return nil, returnNotPossible.New("the goods of movement " + in.GetOriginMovementId() + " are not in stock")
+	}
+	mv, seen := s.returned[in.GetReturnId()]
+	if !seen {
+		mv = ids.New().String()
+		s.returned[in.GetReturnId()] = mv
+	}
+	return &inventoryv3.ReturnResponse{ReturnId: in.GetReturnId(), MovementId: mv}, nil
 }

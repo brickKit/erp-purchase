@@ -9,6 +9,7 @@ import (
 	core "github.com/brickKit/erp-purchase/v3/internal/core"
 	receipts "github.com/brickKit/erp-purchase/v3/internal/receipts"
 	requisitions "github.com/brickKit/erp-purchase/v3/internal/requisitions"
+	returns "github.com/brickKit/erp-purchase/v3/internal/returns"
 
 	"github.com/brickKit/be-sdk-go/v3/httpx"
 	"github.com/brickKit/be-sdk-go/v3/launcher"
@@ -61,6 +62,12 @@ func TestThePayloadsFitTheirSchemas(t *testing.T) {
 			Lines: []receipts.Line{{ID: "01a15ab0-0000-7000-8000-0000000000d2", OrderLineID: "01a15ab0-0000-7000-8000-0000000000d3",
 				Quantity: "2", BaseQuantity: "24", Serials: []string{}, MovementIDs: []string{"01a15ab0-0000-7000-8000-0000000000d4"}}},
 			Version: 2, UpdatedAt: "2026-10-20T08:00:00.000000Z"},
+		core.ReturnChanged: returns.Return{ID: "01a15ab0-0000-7000-8000-0000000000ae", Number: "RT-SH-2026-000001",
+			OrderID: "01a15ab0-0000-7000-8000-0000000000ac", LegalEntityID: le, Reason: &reason, BusinessDate: needed,
+			Lines: []returns.Line{{ID: "01a15ab0-0000-7000-8000-0000000000d5", OrderLineID: "01a15ab0-0000-7000-8000-0000000000d3",
+				ReceiptLineID: "01a15ab0-0000-7000-8000-0000000000d2", OriginMovementID: "01a15ab0-0000-7000-8000-0000000000d4",
+				BaseQuantity: "5", Serials: []string{}, State: "failed", Problem: &reason}},
+			Version: 3, UpdatedAt: "2026-10-20T08:00:00.000000Z"},
 	} {
 		validate(t, typ, v)
 	}

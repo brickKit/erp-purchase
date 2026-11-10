@@ -176,3 +176,69 @@ CREATE TABLE purchase_fact (
     recorded_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (fact_id, type)
 );
+
+-- Service acceptances (PO08): a service line accepted by quantity, by amount or both; the three dimensions are the
+-- order's, copied. Each line's ID is its acceptance fact's.
+CREATE TABLE acceptance (
+    id              uuid PRIMARY KEY,
+    number          text NOT NULL UNIQUE,
+    order_id        uuid NOT NULL REFERENCES purchase_order (id),
+    legal_entity_id uuid NOT NULL,
+    business_date   date NOT NULL,
+    accepted_by     text NOT NULL,
+    owner_id        text NOT NULL,
+    department_id   uuid,
+    department_path text,
+    created_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX acceptance_order ON acceptance (order_id);
+CREATE INDEX acceptance_department ON acceptance (department_id);
+
+CREATE TABLE acceptance_line (
+    id            uuid PRIMARY KEY,
+    acceptance_id uuid NOT NULL REFERENCES acceptance (id),
+    line_no       int NOT NULL,
+    order_line_id uuid NOT NULL REFERENCES order_line (id),
+    quantity      numeric(19,6) NOT NULL CHECK (quantity >= 0),
+    amount        numeric(19,4) NOT NULL CHECK (amount >= 0),
+    CHECK (quantity > 0 OR amount > 0),
+    UNIQUE (acceptance_id, line_no)
+);
+
+-- Purchase returns (PO09): each line returns from one receipt movement and is issued by erp/inventory on its own (its
+-- ID the return's idempotency key there). The three dimensions are the order's, copied.
+CREATE TABLE purchase_return (
+    id              uuid PRIMARY KEY,
+    number          text NOT NULL UNIQUE,
+    order_id        uuid NOT NULL REFERENCES purchase_order (id),
+    legal_entity_id uuid NOT NULL,
+    reason          text,
+    business_date   date NOT NULL,
+    owner_id        text NOT NULL,
+    department_id   uuid,
+    department_path text,
+    created_by      text NOT NULL,
+    version         bigint NOT NULL DEFAULT 1,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    updated_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX purchase_return_list ON purchase_return (created_at DESC, id);
+CREATE INDEX purchase_return_order ON purchase_return (order_id);
+CREATE INDEX purchase_return_department ON purchase_return (department_id);
+
+CREATE TABLE return_line (
+    id                 uuid PRIMARY KEY,
+    return_id          uuid NOT NULL REFERENCES purchase_return (id),
+    line_no            int NOT NULL,
+    order_line_id      uuid NOT NULL REFERENCES order_line (id),
+    receipt_line_id    uuid NOT NULL REFERENCES receipt_line (id),
+    origin_movement_id uuid NOT NULL REFERENCES receipt_movement (movement_id),
+    product_id         uuid NOT NULL,
+    base_quantity      numeric(19,6) NOT NULL CHECK (base_quantity > 0),
+    serials            text[] NOT NULL DEFAULT '{}',
+    state              text NOT NULL DEFAULT 'returning' CHECK (state IN ('returning', 'posted', 'failed')),
+    movement_id        uuid,
+    problem            text,
+    UNIQUE (return_id, line_no)
+);
+CREATE INDEX return_line_returning ON return_line (return_id) WHERE state = 'returning';

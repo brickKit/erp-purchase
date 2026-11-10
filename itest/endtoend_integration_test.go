@@ -92,6 +92,8 @@ func TestPurchaseEndToEnd(t *testing.T) {
 	fx.fromRequisitions()
 	fx.departments()
 	fx.receipts()
+	fx.acceptances()
+	fx.returns()
 }
 
 // start makes the world, the stand-ins and mdm/org's stream, then migrates and runs the member.
@@ -145,7 +147,8 @@ func start(t *testing.T) *fixture {
 		productv3.RegisterSourceServiceServer(s, p)
 		productv3.RegisterProductServiceServer(s, p)
 	})
-	fx.inv = &inventoryStandIn{received: map[string][]string{}, calls: map[string]int{}, publish: fx.publishMovement}
+	fx.inv = &inventoryStandIn{received: map[string][]string{}, returned: map[string]string{}, calls: map[string]int{},
+		publish: fx.publishMovement}
 	serve(t, itInventory, w, core.Inventory, func(s *grpc.Server) { inventoryv3.RegisterStockServiceServer(s, fx.inv) })
 	serve(t, itCurrency, w, core.Currency, func(s *grpc.Server) {
 		currencyv3.RegisterSourceServiceServer(s, currencyStandIn{})

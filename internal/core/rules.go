@@ -44,6 +44,9 @@ var (
 	// PO07: erp/inventory refused the receipt; the receipt is failed (its ID in the problem's receipt_id)
 	ErrReceiptFailed = errs.Define(ID, "RECEIPT_FAILED", errs.FailedPrecondition, 409, errs.RetryNo,
 		"erp/inventory refused the receipt")
+	// PO09: more than the receipt movement has left to return
+	ErrReturnExceeds = errs.Define(ID, "RETURN_EXCEEDS_RECEIPT", errs.FailedPrecondition, 409, errs.RetryNo,
+		"More than the receipt movement received and has not returned")
 	// PR03, PO04: an approver is not the one who submitted (by account)
 	ErrApprover = errs.Define(ID, "APPROVER_IS_SUBMITTER", errs.FailedPrecondition, 409, errs.RetryNo,
 		"The one who submitted it does not approve it")

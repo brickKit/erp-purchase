@@ -20,6 +20,8 @@
 | 模块 | 负责 | 拥有的表 |
 | --- | --- | --- |
 | [`receipts`](internal/receipts/AGENTS.md) | 收货：经库存入库（同步一次、工作项重发），收货计价依据与撤回；**已收数量只来自库存的入库流水**（答复与流水事件按流水身份去重） | `receipt`、`receipt_line`、`receipt_movement` |
+| [`acceptances`](internal/acceptances/AGENTS.md) | 服务验收：按数量或金额，验收事实 | `acceptance`、`acceptance_line` |
+| [`returns`](internal/returns/AGENTS.md) | 采购退货：引用收货流水，先扣可退再逐行经库存出库（工作项重发），退货事实 | `purchase_return`、`return_line` |
 | [`orders`](internal/orders/AGENTS.md) | 采购订单与修订；**订单的生命周期**：一张表定每个状态能做什么、状态怎样变，状态唯一的写入（`Transition`）；从申请行取用 | `purchase_order`、`order_line` |
 | [`requisitions`](internal/requisitions/AGENTS.md) | 采购申请；**申请的生命周期**：一张表定每个状态能做什么、状态怎样变，状态唯一的写入（`Transition`） | `requisition`、`requisition_line` |
 | [`policies`](internal/policies/AGENTS.md) | 按法人的采购政策：要不要审批、超收比例 | `purchase_policy` |
@@ -27,7 +29,7 @@
 
 模块共用的（不属于某一个业务）：[`masterdata`](internal/masterdata/AGENTS.md)（事务外向主数据取证）、[`core`](internal/core/AGENTS.md)（名字、资源与操作的定义、错误与校验、增量事实 `Fact`；表 `purchase_fact` 留着每个增量事实给 `FactService.Read`）。
 
-**实现进度**（3.0.0 开发中，装配项目阶段计划 C2 的 P3）：采购政策、申请、订单的生命周期、收货已做；验收与退货、系统面按 P3e–P3f 依次加进来（还没做的路由答“能力不支持”），每加一个模块就在上面两张表里加一行。
+**实现进度**（3.0.0 开发中，装配项目阶段计划 C2 的 P3）：用户面全部做完（预付申请与价格表按设计答“能力不支持”）；系统面（`MatchService`、`FactService`）与恢复核对随 P3f，每加一个模块就在上面两张表里加一行。
 
 | 想改 | 从这里开始 | 然后 |
 | --- | --- | --- |

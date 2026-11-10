@@ -21,3 +21,10 @@ func TestTheDesignDocumentIsTheLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, core.DocumentProblems(Lifecycle, string(doc)))
 }
+
+// TestEveryRuleIsTested: each rule of the table is named by an integration test.
+func TestEveryRuleIsTested(t *testing.T) {
+	untested, err := core.UntestedRules(Lifecycle, "../../itest")
+	require.NoError(t, err)
+	assert.Empty(t, untested)
+}
