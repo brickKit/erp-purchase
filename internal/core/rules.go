@@ -48,6 +48,9 @@ var (
 	// PO09: more than the receipt movement has left to return
 	ErrReturnExceeds = errs.Define(ID, "RETURN_EXCEEDS_RECEIPT", errs.FailedPrecondition, 409, errs.RetryNo,
 		"More than the receipt movement received and has not returned")
+	// PO09: more than erp/costing's FIFO layer of the receipt has in stock (protocol 05b, the purchase return)
+	ErrReturnExceedsLayer = errs.Define(ID, "RETURN_EXCEEDS_COST_LAYER", errs.FailedPrecondition, 409, errs.RetryNo,
+		"More of the receipt than its cost layer has in stock: erp/costing values by FIFO and the rest has left")
 	// PR03, PO04: an approver is not the one who submitted (by account)
 	ErrApprover = errs.Define(ID, "APPROVER_IS_SUBMITTER", errs.FailedPrecondition, 409, errs.RetryNo,
 		"The one who submitted it does not approve it")

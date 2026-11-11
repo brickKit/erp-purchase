@@ -202,7 +202,8 @@ paths:
       summary: Return goods from receipt movements (Idempotency-Key; PO09)
       description: >-
         Each line names a receipt movement of this order; more than it has left is refused before anything is made
-        (RETURN_EXCEEDS_RECEIPT). The lines are then issued by erp/inventory one by one: 200 when every line is posted
+        (RETURN_EXCEEDS_RECEIPT); with erp/costing deployed and valuing by FIFO, more of a movement than its cost layer
+        has in stock is refused too (RETURN_EXCEEDS_COST_LAYER). The lines are then issued by erp/inventory one by one: 200 when every line is posted
         or failed, 202 while a line is still returning.
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReturnIn'}}}}
       responses:

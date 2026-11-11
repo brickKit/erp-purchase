@@ -13,6 +13,7 @@ import (
 
 	"github.com/brickKit/be-sdk-go/v3/errs"
 	"github.com/brickKit/be-sdk-go/v3/ids"
+	costingv3 "github.com/brickKit/erp-costing/contract/v3/gen/go/be/erp/costing/v3"
 	inventoryv3 "github.com/brickKit/erp-inventory/contract/v3/gen/go/be/erp/inventory/v3"
 	currencyv3 "github.com/brickKit/mdm-currency/contract/v3/gen/go/be/mdm/currency/v3"
 	orgv3 "github.com/brickKit/mdm-org/contract/v3/gen/go/be/mdm/org/v3"
@@ -246,4 +247,40 @@ func (s *inventoryStandIn) Return(_ context.Context, in *inventoryv3.ReturnReque
 		s.returned[in.GetReturnId()] = mv
 	}
 	return &inventoryv3.ReturnResponse{ReturnId: in.GetReturnId(), MovementId: mv}, nil
+}
+
+// --- erp/costing: how much of a receipt may go back ---
+
+// costingStandIn answers LayerService.ReturnLimit as erp/costing does: a receipt it has a FIFO layer for is limited to
+// the layer's units in stock, one it has not valued is not known; "down" answers nothing.
+type costingStandIn struct {
+	costingv3.UnimplementedLayerServiceServer
+	mu     sync.Mutex
+	down   bool
+	limits map[string]string // origin movement → its layer's units in stock
+}
+
+func (s *costingStandIn) limit(movement, quantity string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.limits[movement] = quantity
+}
+
+func (s *costingStandIn) setDown(down bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.down = down
+}
+
+func (s *costingStandIn) ReturnLimit(_ context.Context, in *costingv3.ReturnLimitRequest) (*costingv3.ReturnLimitResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.down {
+		return nil, status.Error(codes.Unavailable, "the stand-in is down")
+	}
+	q, ok := s.limits[in.GetOriginMovementId()]
+	if !ok {
+		return &costingv3.ReturnLimitResponse{}, nil
+	}
+	return &costingv3.ReturnLimitResponse{Known: true, Limited: true, Quantity: q}, nil
 }

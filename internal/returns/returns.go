@@ -114,6 +114,18 @@ func CreateReturn(m *core.Base, c *httpx.Context) error {
 	if in.BusinessDate != nil {
 		date = *in.BusinessDate
 	}
+	// PO09: erp/costing's limit per receipt movement, asked outside the transaction and compared in it (a replay never
+	// meets it: the limit may have fallen by the return itself)
+	limits := map[string]string{}
+	for _, l := range in.Lines {
+		if _, asked := limits[l.OriginMovementID]; asked {
+			continue
+		}
+		limits[l.OriginMovementID] = "" // not limited
+		if q, limited := masterdata.ReturnLimit(m, ctx, l.OriginMovementID); limited {
+			limits[l.OriginMovementID] = q
+		}
+	}
 	number, err := core.Number(m, ctx, "RT", le.ID, le.Code, today)
 	if err != nil {
 		return err
@@ -125,6 +137,9 @@ func CreateReturn(m *core.Base, c *httpx.Context) error {
 		}
 		if d := orders.Lifecycle.Decide(cur.State, orders.Return); d.Effect != core.Proceed {
 			return idem.Outcome{}, core.Refused(d, cur.State)
+		}
+		if err := withinLayers(ctx, tx, in.Lines, limits); err != nil {
+			return idem.Outcome{}, err
 		}
 		id := ids.New().String()
 		if _, err := tx.Exec(ctx, `INSERT INTO purchase_return (id, number, order_id, legal_entity_id, reason,
@@ -187,6 +202,29 @@ func CreateReturn(m *core.Base, c *httpx.Context) error {
 		return c.JSON(200, r)
 	}
 	return c.JSON(202, r)
+}
+
+// withinLayers refuses lines that together return more of a receipt movement than erp/costing's limit for it
+// (RETURN_EXCEEDS_COST_LAYER); a movement without a limit passes.
+func withinLayers(ctx context.Context, tx db.Tx, lines []lineIn, limits map[string]string) error {
+	asked := map[string][]string{}
+	for _, l := range lines {
+		if limits[l.OriginMovementID] != "" {
+			asked[l.OriginMovementID] = append(asked[l.OriginMovementID], l.BaseQuantity)
+		}
+	}
+	for movement, quantities := range asked {
+		var within bool
+		if err := tx.QueryRow(ctx, `SELECT (SELECT sum(q) FROM unnest($1::numeric[]) q) <= $2::numeric`, quantities,
+			limits[movement]).Scan(&within); err != nil {
+			return err
+		}
+		if !within {
+			return core.ErrReturnExceedsLayer.New(fmt.Sprintf("erp/costing has %s of movement %s in stock",
+				limits[movement], movement))
+		}
+	}
+	return nil
 }
 
 type returnArgs struct {

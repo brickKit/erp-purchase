@@ -18,6 +18,9 @@ const (
 	Inventory = "erp/inventory"
 	// Finance reads the match basis (protocol 05, D50).
 	Finance = "erp/finance"
+	// Costing says how much of a receipt may go back before a purchase return (LayerService.ReturnLimit, protocol 05b);
+	// optional: without it nothing but the receipt movement limits a return.
+	Costing = "erp/costing"
 )
 
 // The stream and its event types (contract/events).

@@ -23,7 +23,7 @@
 ## 依赖说明
 
 - 必需：数据库、消息系统、身份成员、授权成员、`mdm/org`、`mdm/partner`、`mdm/product`、`mdm/currency`。
-- 可选：`erp/inventory`（缺时库存物资行不能收货与退货，答“依赖不可用”；只有服务行的订单照常）、审计组件。
+- 可选：`erp/inventory`（缺时库存物资行不能收货与退货，答“依赖不可用”；只有服务行的订单照常）；`erp/costing`（退货前问可退数量，先进先出时超过成本层在库的拒绝；缺席或不答复时退货只受收货流水限制）；审计组件。
 - 库存在收货或退货时不答复：收货单或退货行停在“收货中”“退货中”（用户面答 202），工作项按同一身份重发直到库存答复；库存的流水事件也会补齐收货。收货中的订单不能关闭、不能取消。
 - 主数据不可达时：新建、修改、提交答“依赖不可用”，已有数据照常读取。
 
@@ -43,7 +43,7 @@
 ## 契约索引
 
 - **系统面**（本仓库 `contract/proto`，模块 `github.com/brickKit/erp-purchase/contract/v3`，标签 `contract/v3.…`）：`be.erp.purchase.v3.MatchService/Basis`（订单行的订购（订单单位与基本单位）、已收（按流水，净额）、已验收；只对 `erp/finance` 开放）、`be.erp.purchase.v3.FactService/Read`（增量事实按身份补取；任一组件）；操作 `erp.purchase.system.read`。整套恢复的核对（`be.recovery.v1.CheckService`）答申请、订单、收货（含验收）、退货、政策的“还在不在”。
-- **用户面**：`contract/openapi.yaml`。操作 `erp.purchase.requisition.read`、`erp.purchase.requisition.edit`、`erp.purchase.requisition.approve`、`erp.purchase.order.read`、`erp.purchase.order.edit`、`erp.purchase.order.approve`、`erp.purchase.receipt.read`、`erp.purchase.receipt.create`、`erp.purchase.return.read`、`erp.purchase.return.edit`、`erp.purchase.policy.read`、`erp.purchase.policy.manage`；单据带法人、部门、负责人三个维度，采购政策带法人维度。新建、收货、验收、退货要带 `Idempotency-Key`。收货被库存拒绝答 409 `RECEIPT_FAILED`，收货单身份在问题的 `metadata.receipt_id`；超收答 `OVER_RECEIPT`，退货超出流水的可退答 `RETURN_EXCEEDS_RECEIPT`。
+- **用户面**：`contract/openapi.yaml`。操作 `erp.purchase.requisition.read`、`erp.purchase.requisition.edit`、`erp.purchase.requisition.approve`、`erp.purchase.order.read`、`erp.purchase.order.edit`、`erp.purchase.order.approve`、`erp.purchase.receipt.read`、`erp.purchase.receipt.create`、`erp.purchase.return.read`、`erp.purchase.return.edit`、`erp.purchase.policy.read`、`erp.purchase.policy.manage`；单据带法人、部门、负责人三个维度，采购政策带法人维度。新建、收货、验收、退货要带 `Idempotency-Key`。收货被库存拒绝答 409 `RECEIPT_FAILED`，收货单身份在问题的 `metadata.receipt_id`；超收答 `OVER_RECEIPT`，退货超出流水的可退答 `RETURN_EXCEEDS_RECEIPT`，超过成本层在库的（成本组件按先进先出）答 `RETURN_EXCEEDS_COST_LAYER`。
 - **事件**（流 `erp.purchase`，schema 在 `contract/events/`）：`erp.purchase_requisition.changed.v1`、`erp.purchase_order.changed.v1`、`erp.purchase_receipt.changed.v1`、`erp.purchase_return.changed.v1`（完整状态），`erp.purchase_receipt.valuation_basis.v1`、`erp.purchase_receipt.valuation_basis_withdrawn.v1`、`erp.purchase_acceptance.recorded.v1`、`erp.purchase_return.posted.v1`（增量事实，按 `fact_id` 去重）。订阅 `mdm/org` 部门的全部事件（`mdm.org_unit.>`）与 `erp/inventory` 的流水事件 `erp.inventory_movement.recorded.v1`（流 `erp.inventory`，只取采购收货的入库）。
 
 ## 外壳声明

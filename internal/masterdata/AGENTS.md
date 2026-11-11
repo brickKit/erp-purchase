@@ -4,7 +4,7 @@
 
 ## 负责与不负责
 
-- 负责：法人（`LegalEntityOf`）、部门的来源读取（`OrgUnitRead`）、供应商的资格与快照（`SupplierOf`，用途 `purchase`）、产品的资格与快照（`ProductsOf`，用途 `purchase`，回答带是否库存物资）、单位换算（`Convert`）、币种小数位（`CurrencyScale`）；按依赖 ID 取 gRPC 连接（`Conn`）。
+- 负责：法人（`LegalEntityOf`）、部门的来源读取（`OrgUnitRead`）、供应商的资格与快照（`SupplierOf`，用途 `purchase`）、产品的资格与快照（`ProductsOf`，用途 `purchase`，回答带是否库存物资）、单位换算（`Convert`）、币种小数位（`CurrencyScale`）、成本组件的可退数量（`ReturnLimit`，退货前；缺席或不答复时不限）；按依赖 ID 取 gRPC 连接（`Conn`）。
 - 不负责：库存的收货与退货命令（`receipts`、`returns` 自己发，连接经 `Conn`）；部门投影（`orgunits`）。
 
 ## 文件

@@ -9,7 +9,7 @@
 
 ## 怎样走
 
-- 建退货（`CreateReturn`）：事务里锁订单、查表，每行的流水必须是本订单的收货流水（否则 400），“已退 + 本次 ≤ 收进”在一条 `UPDATE` 里判断；写退货单、行（`returning`）、工作项、事件。
+- 建退货（`CreateReturn`）：事务外先按每条流水问 `erp/costing` 的可退数量（`masterdata.ReturnLimit`），事务里同一条流水的各行合计超过它就整笔拒绝（`withinLayers`，`RETURN_EXCEEDS_COST_LAYER`；重放不核对）；事务里锁订单、查表，每行的流水必须是本订单的收货流水（否则 400），“已退 + 本次 ≤ 收进”在一条 `UPDATE` 里判断；写退货单、行（`returning`）、工作项、事件。
 - 同步调一次 `issue`（3 秒）：逐行调库存；答复 → `settle` 过账（记出库流水、已收减少、发退货事实）；库存拒绝（它的领域错误）→ 该行失败，数量退回流水；不明 → 留给工作项。全部行定了答 200，还有行在退货中答 202。完成之后的退货不让订单回到已批准（PO12 的说明）。
 
 ## 文件
@@ -17,11 +17,11 @@
 | 文件 | 内容 |
 | --- | --- |
 | `records.go` | `Return`、`Line`（事件的形状）；读取的 SQL、`emit`、`settled` |
-| `returns.go` | 输入检查、`CreateReturn`、`issue`、`refused`、`settle`、`ReturnJob`、`GetReturn`、`ListReturns` |
+| `returns.go` | 输入检查、`CreateReturn`、`withinLayers`、`issue`、`refused`、`settle`、`ReturnJob`、`GetReturn`、`ListReturns` |
 
 ## 依赖与被依赖
 
-- 依赖：`core`、`masterdata`（`Conn`、`LegalEntityOf`）、`orders`（`Read`、`Get`、`Lifecycle`、`Progressed`、`OrderFacts`）。
+- 依赖：`core`、`masterdata`（`Conn`、`LegalEntityOf`、`ReturnLimit`）、`orders`（`Read`、`Get`、`Lifecycle`、`Progressed`、`OrderFacts`）。
 - 被依赖：入口登记路由与工作。
 
 ## 规则在哪
@@ -30,4 +30,4 @@
 
 ## 测试
 
-`itest/returns_integration_test.go`（`returns`：已完成的订单退货后仍是已完成、超出流水的可退整笔拒绝且不建单、库存拒绝时失败并退回数量、库存不答复时 202 与工作项重发、已关闭的订单能退、别的订单的流水被拒、草稿不能退）。
+`itest/returns_integration_test.go`（`returns`：已完成的订单退货后仍是已完成、超出流水的可退整笔拒绝且不建单、库存拒绝时失败并退回数量、库存不答复时 202 与工作项重发、已关闭的订单能退、别的订单的流水被拒、草稿不能退；`returnLimits`：超过成本层在库整笔拒绝、同一流水的两行合计、重放不核对、成本组件不答复不拦）。

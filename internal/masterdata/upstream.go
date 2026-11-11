@@ -9,6 +9,7 @@ import (
 
 	"github.com/brickKit/be-sdk-go/v3/calls"
 	"github.com/brickKit/be-sdk-go/v3/errs"
+	costingv3 "github.com/brickKit/erp-costing/contract/v3/gen/go/be/erp/costing/v3"
 	currencyv3 "github.com/brickKit/mdm-currency/contract/v3/gen/go/be/mdm/currency/v3"
 	orgv3 "github.com/brickKit/mdm-org/contract/v3/gen/go/be/mdm/org/v3"
 	partnerv3 "github.com/brickKit/mdm-partner/contract/v3/gen/go/be/mdm/partner/v3"
@@ -235,4 +236,25 @@ func CurrencyScale(m *core.Base, ctx context.Context, code string) (int32, error
 		return 0, core.ErrCurrency.New("currency " + code + " is not active")
 	}
 	return cur.MinorUnit, nil
+}
+
+// ReturnLimit is how much of a receipt movement erp/costing lets go back (LayerService.ReturnLimit, protocol 05b): a
+// FIFO layer's units in stock (limited); not limited when costing values by moving average, has not valued the
+// receipt, is not deployed or does not answer (it then values the excess as stock below zero, with a warning).
+func ReturnLimit(m *core.Base, ctx context.Context, movement string) (quantity string, limited bool) {
+	c, ok := m.RT.GRPC(core.Costing)
+	if !ok {
+		return "", false
+	}
+	res, err := costingv3.NewLayerServiceClient(c).ReturnLimit(ctx, &costingv3.ReturnLimitRequest{OriginMovementId: movement},
+		calls.Idempotent())
+	if err != nil {
+		m.RT.Logger.Warn("erp/costing did not say how much of the receipt may go back; not limited", "event", "return_limit_unknown",
+			"origin_movement_id", movement, "error", err)
+		return "", false
+	}
+	if !res.GetKnown() || !res.GetLimited() {
+		return "", false
+	}
+	return res.GetQuantity(), true
 }

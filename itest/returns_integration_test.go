@@ -3,6 +3,7 @@
 package itest
 
 import (
+	"github.com/brickKit/be-sdk-go/v3/ids"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -74,6 +75,45 @@ func (fx *fixture) returns() {
 	code, out = fx.giveBack(d["id"].(string), first, "1")
 	assert.Equal(t, 409, code, out)
 	assert.Equal(t, "STATE_CONFLICT", out["reason"])
+}
+
+// returnLimits: erp/costing's limit on a purchase return (PO09, protocol 05b): after systemSurface, which reads order
+// A's returns as returns left them.
+func (fx *fixture) returnLimits() {
+	t := fx.t
+	aid := fx.orders["A"]["id"].(string)
+	_, second := fx.movements(aid)
+	require.NotEmpty(t, second)
+	// PO09 (RT01): erp/costing values by FIFO and 3 units of the second movement's layer are in stock: more is refused
+	// before anything is made, two lines on the movement count together; 3 go back; the same request again is the
+	// same return, whatever the limit is now; erp/costing not answering does not stop a return (it values the excess as
+	// stock below zero, with a warning)
+	fx.cost.limit(second, "3")
+	before := len(fx.get("/api/purchase/returns?order_id=" + aid)["returns"].([]any))
+	code, out := fx.giveBack(aid, second, "4")
+	assert.Equal(t, 409, code, out)
+	assert.Equal(t, "RETURN_EXCEEDS_COST_LAYER", out["reason"])
+	code, out = fx.alice.do("POST", "/api/purchase/orders/"+aid+"/returns", map[string]any{"lines": []any{
+		map[string]any{"origin_movement_id": second, "base_quantity": "2"},
+		map[string]any{"origin_movement_id": second, "base_quantity": "2"}}})
+	assert.Equal(t, 409, code, out)
+	assert.Equal(t, "RETURN_EXCEEDS_COST_LAYER", out["reason"])
+	assert.Len(t, fx.get("/api/purchase/returns?order_id=" + aid)["returns"], before)
+	body := map[string]any{"lines": []any{map[string]any{"origin_movement_id": second, "base_quantity": "3"}}}
+	key := ids.New().String()
+	code, r := fx.alice.do("POST", "/api/purchase/orders/"+aid+"/returns", body, key)
+	require.Equal(t, 200, code, r)
+	fx.cost.limit(second, "0")
+	code, again := fx.alice.do("POST", "/api/purchase/orders/"+aid+"/returns", body, key)
+	require.Equal(t, 200, code, again)
+	assert.Equal(t, r["id"], again["id"])
+	fx.cost.setDown(true)
+	code, r = fx.giveBack(aid, second, "1")
+	fx.cost.setDown(false)
+	require.Equal(t, 200, code, r)
+	assert.Equal(t, "posted", at(r, "lines", 0, "state"))
+	assert.Equal(t, "91", at(fx.get("/api/purchase/orders/"+aid), "lines", 0, "received_base_quantity"))
+
 }
 
 // movements are the receipt movements of an order's posted receipts, oldest first (first and second).
