@@ -157,6 +157,7 @@
 
 - 完整状态事件（可覆盖）：申请 `erp.purchase_requisition.changed.v1`、订单 `erp.purchase_order.changed.v1`（带行与进度）、收货单 `erp.purchase_receipt.changed.v1`、退货单 `erp.purchase_return.changed.v1`；审批任务 `erp.purchase_task.changed.v1`（载荷是线协议的共享任务契约 `schemas/flow/task.v1`，统一待办收它）。
 - 心跳：有待处理或暂停的任务时每 5 分钟一条 `erp.purchase_task.heartbeat.v1`（线协议 `schemas/flow/task_heartbeat.v1`）。
+- 审批待办的通知意图：`erp.purchase_notification.intent.v1`（线协议的共享意图契约 `schemas/notification/intent.v1`，由 SDK 的流程内核随任务投影发出，P18.10；`infra/notification` 收）。
 - 增量事实（不可遗漏，协议 05 的共同规则；事实身份是收货行、验收行、退货行的身份，`FactService.Read` 按身份补取）：收货计价依据 `erp.purchase_receipt.valuation_basis.v1` 与它的撤回 `erp.purchase_receipt.valuation_basis_withdrawn.v1`（收货失败时）、验收事实 `erp.purchase_acceptance.recorded.v1`、采购退货 `erp.purchase_return.posted.v1`。
 
 订阅：`mdm/org` 的部门事件（部门投影，同销售）；装了 `mdm/employee` 时它的流 `mdm.employee`（任职与账号关联的带水位投影，流程内核用）；`erp/inventory` 的流水事件 `erp.inventory_movement.recorded.v1`（只取 `ref_kind = purchase_receipt` 的入库，按入库事实补齐已收）。
@@ -178,6 +179,8 @@
 下游：`erp/finance`（匹配依据、期末暂估；预付申请以后）、`erp/costing`（收货计价依据与入库流水）、`prj/project`（带项目参考的采购，只经事件，远期）。
 
 ## 实现状态
+
+3.0.12：be-sdk-go alpha.128（全系统同一个 SDK 版本）：流程内核随任务投影发审批待办的通知意图 `erp.purchase_notification.intent.v1`（线协议 P18.10），清单与契约（`contract/events/`）声明它；装配项目阶段计划 C8。业务行为不变。
 
 3.0.11：be-sdk-go alpha.127（全系统同一个 SDK 版本；授权定义拒绝不合“资源类型 + 一段动作”的操作键，线协议 P8.7，C7 复盘 R2）及随之连锁的版本；本组件行为不变。
 

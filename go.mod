@@ -3,8 +3,8 @@ module github.com/brickKit/erp-purchase/v3
 go 1.27.0
 
 require (
-	github.com/brickKit/be-protocol/v3 v3.0.0-alpha.123
-	github.com/brickKit/be-sdk-go/v3 v3.0.0-alpha.127
+	github.com/brickKit/be-protocol/v3 v3.0.0-alpha.124
+	github.com/brickKit/be-sdk-go/v3 v3.0.0-alpha.128
 	github.com/brickKit/erp-costing/contract/v3 v3.0.0-alpha.2
 	github.com/brickKit/erp-inventory/contract/v3 v3.0.0-alpha.2
 	github.com/brickKit/erp-purchase/contract/v3 v3.0.0-alpha.4
