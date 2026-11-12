@@ -10,7 +10,9 @@ info:
     are application/problem+json with a reason. Lists page by cursor only (protocol 14). Quantities and amounts are
     decimal strings. Prepayments and price lists are in the contract but not in this version: they answer
     CAPABILITY_UNSUPPORTED (D75). The match basis and the read of the incremental facts are on the system surface
-    (proto).
+    (proto). Approvals run on the SDK's flow kernel (be-protocol chapter 17): its standard routes under
+    /be/flow/tasks (a decision, a task, the paused tasks) are registered by the SDK and specified by the
+    protocol, not here; the approve and reject routes below decide the caller's task of the document through it.
 paths:
   /api/purchase/requisitions:
     get:
@@ -64,10 +66,10 @@ paths:
     post: {operationId: submitRequisition, x-operation: erp.purchase.requisition.edit, summary: 'Submit a draft (PR02); approved at once when the policy asks for no approval', requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/Versioned'}}}}, responses: {'200': {description: the requisition, content: {application/json: {schema: {$ref: '#/components/schemas/Requisition'}}}}, default: {$ref: '#/components/responses/problem'}}}
   /api/purchase/requisitions/{id}/approve:
     parameters: [{$ref: '#/components/parameters/id'}]
-    post: {operationId: approveRequisition, x-operation: erp.purchase.requisition.approve, summary: 'Approve a submitted requisition; not by its submitter (PR03)', requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/Versioned'}}}}, responses: {'200': {description: the requisition, content: {application/json: {schema: {$ref: '#/components/schemas/Requisition'}}}}, default: {$ref: '#/components/responses/problem'}}}
+    post: {operationId: approveRequisition, x-operation: erp.purchase.requisition.approve, summary: 'Approve a submitted requisition: the decision on the caller''s approval task (PR03; a candidate, not the submitter''s person; Idempotency-Key optional, else the task, the caller and the decision)', requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/Versioned'}}}}, responses: {'200': {description: the requisition, content: {application/json: {schema: {$ref: '#/components/schemas/Requisition'}}}}, default: {$ref: '#/components/responses/problem'}}}
   /api/purchase/requisitions/{id}/reject:
     parameters: [{$ref: '#/components/parameters/id'}]
-    post: {operationId: rejectRequisition, x-operation: erp.purchase.requisition.approve, summary: 'Reject a submitted requisition with a reason (PR04)', requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Reason'}}}}, responses: {'200': {description: the requisition, content: {application/json: {schema: {$ref: '#/components/schemas/Requisition'}}}}, default: {$ref: '#/components/responses/problem'}}}
+    post: {operationId: rejectRequisition, x-operation: erp.purchase.requisition.approve, summary: 'Reject a submitted requisition with a reason: the rejection of the caller''s approval task (PR04)', requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Reason'}}}}, responses: {'200': {description: the requisition, content: {application/json: {schema: {$ref: '#/components/schemas/Requisition'}}}}, default: {$ref: '#/components/responses/problem'}}}
   /api/purchase/requisitions/{id}/cancel:
     parameters: [{$ref: '#/components/parameters/id'}]
     post: {operationId: cancelRequisition, x-operation: erp.purchase.requisition.edit, summary: 'Cancel a draft, a submitted or an approved requisition nothing was ordered from (PR05)', requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/Versioned'}}}}, responses: {'200': {description: the requisition, content: {application/json: {schema: {$ref: '#/components/schemas/Requisition'}}}}, default: {$ref: '#/components/responses/problem'}}}
@@ -125,10 +127,10 @@ paths:
     post: {operationId: submitOrder, x-operation: erp.purchase.order.edit, summary: 'Submit a draft (PO03); approved at once when the policy asks for no approval', requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/Versioned'}}}}, responses: {'200': {description: the order, content: {application/json: {schema: {$ref: '#/components/schemas/Order'}}}}, default: {$ref: '#/components/responses/problem'}}}
   /api/purchase/orders/{id}/approve:
     parameters: [{$ref: '#/components/parameters/id'}]
-    post: {operationId: approveOrder, x-operation: erp.purchase.order.approve, summary: 'Approve a submitted order; not by its submitter (PO04)', requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/Versioned'}}}}, responses: {'200': {description: the order, content: {application/json: {schema: {$ref: '#/components/schemas/Order'}}}}, default: {$ref: '#/components/responses/problem'}}}
+    post: {operationId: approveOrder, x-operation: erp.purchase.order.approve, summary: 'Approve a submitted order: the decision on the caller''s approval task (PO04; a candidate, not the submitter''s person; Idempotency-Key optional, else the task, the caller and the decision)', requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/Versioned'}}}}, responses: {'200': {description: the order, content: {application/json: {schema: {$ref: '#/components/schemas/Order'}}}}, default: {$ref: '#/components/responses/problem'}}}
   /api/purchase/orders/{id}/reject:
     parameters: [{$ref: '#/components/parameters/id'}]
-    post: {operationId: rejectOrder, x-operation: erp.purchase.order.approve, summary: 'Reject a submitted order back to draft with a reason (PO05)', requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Reason'}}}}, responses: {'200': {description: the order, content: {application/json: {schema: {$ref: '#/components/schemas/Order'}}}}, default: {$ref: '#/components/responses/problem'}}}
+    post: {operationId: rejectOrder, x-operation: erp.purchase.order.approve, summary: 'Reject a submitted order back to draft with a reason: the rejection of the caller''s approval task (PO05)', requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Reason'}}}}, responses: {'200': {description: the order, content: {application/json: {schema: {$ref: '#/components/schemas/Order'}}}}, default: {$ref: '#/components/responses/problem'}}}
   /api/purchase/orders/{id}/revise:
     parameters: [{$ref: '#/components/parameters/id'}]
     post: {operationId: reviseOrder, x-operation: erp.purchase.order.edit, summary: 'A new revision of an approved order, back to submitted; quantities not below what is received, receiving and accepted (PO06)', requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/OrderIn'}}}}, responses: {'200': {description: the order, content: {application/json: {schema: {$ref: '#/components/schemas/Order'}}}}, default: {$ref: '#/components/responses/problem'}}}
@@ -396,14 +398,18 @@ components:
       required: [approval, over_receipt_percent]
       properties:
         approval: {enum: [required, none]}
+        approver_position_id: {type: [string, 'null'], format: uuid, description: 'a position of mdm/org: its holders in the legal entity approve (needs mdm/employee); at most one of this and approver_principal'}
+        approver_principal: {type: [string, 'null'], minLength: 1, description: 'the one principal who approves'}
         over_receipt_percent: {$ref: '#/components/schemas/Decimal'}
         version: {type: integer}
     Policy:
       type: object
-      required: [legal_entity_id, approval, over_receipt_percent, version]
+      required: [legal_entity_id, approval, approver_position_id, approver_principal, over_receipt_percent, version]
       properties:
         legal_entity_id: {type: string, format: uuid}
         approval: {enum: [required, none]}
+        approver_position_id: {type: [string, 'null'], format: uuid}
+        approver_principal: {type: [string, 'null']}
         over_receipt_percent: {$ref: '#/components/schemas/Decimal'}
         version: {type: integer, description: '0: the starting values, never set'}
     Requisition: {$ref: 'events/erp.purchase_requisition.changed.v1.schema.json'}

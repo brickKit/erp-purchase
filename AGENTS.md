@@ -25,7 +25,7 @@
 | [`receipts`](internal/receipts/AGENTS.md) | 收货：经库存入库（同步一次、工作项重发），收货计价依据与撤回；**已收数量只来自库存的入库流水**（答复与流水事件按流水身份去重） | `receipt`、`receipt_line`、`receipt_movement` |
 | [`acceptances`](internal/acceptances/AGENTS.md) | 服务验收：按数量或金额，验收事实 | `acceptance`、`acceptance_line` |
 | [`returns`](internal/returns/AGENTS.md) | 采购退货：引用收货流水，先扣可退再逐行经库存出库（工作项重发），退货事实 | `purchase_return`、`return_line` |
-| [`policies`](internal/policies/AGENTS.md) | 按法人的采购政策：要不要审批、超收比例 | `purchase_policy` |
+| [`policies`](internal/policies/AGENTS.md) | 按法人的采购政策：要不要审批、审批人、超收比例 | `purchase_policy` |
 | [`orgunits`](internal/orgunits/AGENTS.md) | 部门投影（协议 02）：部门路径复制到单据上 | `org_realign`（投影本身在 SDK 的表里） |
 | [`matchbasis`](internal/matchbasis/AGENTS.md) | 系统面：匹配依据（订购、已收按流水、已验收），只给 `erp/finance` | —（只读） |
 | [`facts`](internal/facts/AGENTS.md) | 系统面：增量事实按身份读回，任一组件 | —（读 `purchase_fact`） |
@@ -38,6 +38,7 @@
 | --- | --- | --- |
 | 订单在某个状态下能不能做某件事；加一个订单状态或命令；新需求会不会和已有规则冲突 | `docs/design.md` 的“订单的状态”（一张表与规则目录 PO01–PO12） | `internal/orders/lifecycle.go`（同一张表）与它的说明里“加一个状态或命令” |
 | 申请在某个状态下能不能做某件事；加一个申请状态或命令 | `docs/design.md` 的申请一节（一张表与规则 PR01–PR06） | `internal/requisitions/lifecycle.go`（同一张表）与它的说明里“加一个状态或命令” |
+| 审批：谁批、自审怎样拦、待办里的任务、放行 | `docs/design.md` 的 PO03–PO08、PR02–PR06 与“规则要点”的审批人；线协议第 17 章 | `internal/orders/approval.go`、`internal/requisitions/approval.go`、入口 `purchase/module.go` 的 `New`；SDK 的 `flow` 包 |
 | 收货、验收、退货怎样走；库存不答复或答复丢了会怎样 | `docs/design.md` 的“收货、验收与退货” | `internal/receipts`、`internal/acceptances`、`internal/returns` 的说明；`itest/receipts_integration_test.go`、`itest/returns_integration_test.go` |
 | 给财务、成本的东西（匹配依据、收货计价依据、验收与退货事实） | 契约 `contract/proto`、`contract/events` | `internal/matchbasis`、`internal/facts`、`core.Fact`（每个增量事实都经它） |
 | 一个维度、一个操作、列表能筛选的字段 | `internal/core/names.go` | `docs/design.md` 的命令与查询、`BRICKKIT.md` 的契约索引；路由的登记在 `purchase/module.go` |

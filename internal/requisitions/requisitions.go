@@ -8,7 +8,6 @@ import (
 	core "github.com/brickKit/erp-purchase/v3/internal/core"
 	masterdata "github.com/brickKit/erp-purchase/v3/internal/masterdata"
 	orgunits "github.com/brickKit/erp-purchase/v3/internal/orgunits"
-	policies "github.com/brickKit/erp-purchase/v3/internal/policies"
 
 	sdkauthz "github.com/brickKit/be-sdk-go/v3/authz"
 	"github.com/brickKit/be-sdk-go/v3/bizdate"
@@ -157,8 +156,8 @@ func CreateRequisition(m *core.Base, c *httpx.Context) error {
 	out, _, err := idem.Do(ctx, m.RT.DB, req, func(ctx context.Context, tx db.Tx) (idem.Outcome, error) {
 		id := ids.New().String()
 		if _, err := tx.Exec(ctx, `INSERT INTO requisition (id, number, legal_entity_id, department_id, department_path,
-			requester_id, search, search_version) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, id, number, p.le.ID, p.deptID,
-			p.deptPath, actor, search.Text(number), search.Version); err != nil {
+			requester_id, search, search_version, timezone) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, id, number,
+			p.le.ID, p.deptID, p.deptPath, actor, search.Text(number), search.Version, p.le.Timezone); err != nil {
 			return idem.Outcome{}, err
 		}
 		if err := writeLines(ctx, tx, id, in.Lines, p.products); err != nil {
@@ -237,8 +236,8 @@ func UpdateRequisition(m *core.Base, c *httpx.Context) error {
 		if err := writeLines(ctx, tx, r.ID, in.Lines, p.products); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE requisition SET department_id = $2, department_path = $3, version = version + 1,
-			updated_at = now() WHERE id = $1`, r.ID, p.deptID, p.deptPath); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE requisition SET department_id = $2, department_path = $3, timezone = $4,
+			version = version + 1, updated_at = now() WHERE id = $1`, r.ID, p.deptID, p.deptPath, p.le.Timezone); err != nil {
 			return err
 		}
 		if out, err = emit(m, ctx, tx, r.ID); err != nil {
@@ -258,7 +257,8 @@ type actionIn struct {
 }
 
 // Action is one of the commands submit, approve, reject and cancel, as the table decides it in the requisition's
-// state; an ignored command answers the requisition as it is.
+// state; an ignored command answers the requisition as it is. Approve and reject are decisions on the requisition's
+// approval task (decide).
 func Action(m *core.Base, command string) httpx.Handler {
 	op := map[string]string{Submit: core.OpReqEdit, Approve: core.OpReqApprove, Reject: core.OpReqApprove,
 		Cancel: core.OpReqEdit}[command]
@@ -275,15 +275,14 @@ func Action(m *core.Base, command string) httpx.Handler {
 		if err != nil {
 			return err
 		}
-		set := Set{}
-		if command == Reject {
-			if in.Reason == nil || strings.TrimSpace(*in.Reason) == "" {
-				if d := Lifecycle.Decide(cur.State, Reject); d.Effect == core.Move {
-					return core.Invalid("reason", "a rejection has its reason")
-				}
-			}
-			set.Reason = in.Reason
+		d := Lifecycle.Decide(cur.State, command)
+		if command == Reject && d.Effect == core.Move && (in.Reason == nil || strings.TrimSpace(*in.Reason) == "") {
+			return core.Invalid("reason", "a rejection has its reason")
 		}
+		if d.Guard == GuardFlow {
+			return decide(m, c, ctx, cur, command, in)
+		}
+		set := Set{}
 		var out Requisition
 		err = m.RT.DB.Tx(ctx, func(ctx context.Context, tx db.Tx) error {
 			r, err := get(ctx, tx, cur.ID, true)
@@ -304,22 +303,23 @@ func Action(m *core.Base, command string) httpx.Handler {
 			switch d.Guard {
 			case GuardPolicy:
 				set.SubmittedBy = actor
-				p, err := policies.Of(ctx, tx, r.LegalEntityID)
-				if err != nil {
+				if err := startApproval(m, ctx, tx, r, &d, actor); err != nil {
 					return err
-				}
-				if !p.NeedsApproval() {
-					d.To = Approved
-				}
-			case GuardNotSubmitter:
-				if r.SubmittedBy != nil && *r.SubmittedBy == actor {
-					return core.ErrApprover.New("the requisition was submitted by " + actor + ": another approves it")
 				}
 			case GuardNothingOrdered:
 				for _, l := range r.Lines {
 					if l.Ordered != "0" {
 						return core.ErrState.New("order lines were made from the requisition: it is not cancelled")
 					}
+				}
+			}
+			if command == Cancel { // a pending approval is withdrawn, an approved one superseded (PR05)
+				end := m.Flow.WithdrawIn
+				if r.State == Approved {
+					end = m.Flow.SupersedeIn
+				}
+				if err := end(ctx, tx, Document(r)); err != nil {
+					return err
 				}
 			}
 			out, err = Transition(m, ctx, tx, r, d, set, actor)

@@ -9,7 +9,7 @@
 
 ## 生命周期（改申请规则先读这里）
 
-`lifecycle.go` 是一张表（`core.Table`）：6 个状态（`draft`、`submitted`、`approved`、`rejected`、`cancelled`、`closed`）× 8 个命令（修改、提交、批准、驳回、取消、转订单、全部转完、退回），每格写拒绝（原文）、忽略、允许或变成某状态（审计的操作），附加条件（`GuardPolicy`：政策不要审批时直接批准；`GuardNotSubmitter`：批准人不是提交人；`GuardNothingOrdered`：没转过订单才能取消已批准的；`GuardAllOrdered`、`GuardNotAllOrdered`：关闭与重开），规则编号 PR01–PR06。
+`lifecycle.go` 是一张表（`core.Table`）：6 个状态（`draft`、`submitted`、`approved`、`rejected`、`cancelled`、`closed`）× 8 个命令（修改、提交、批准、驳回、取消、转订单、全部转完、退回），每格写拒绝（原文）、忽略、允许或变成某状态（审计的操作），附加条件（`GuardPolicy`：政策不要审批时直接批准；`GuardFlow`：批准与驳回是对审批任务的决定；`GuardNothingOrdered`：没转过订单才能取消已批准的；`GuardAllOrdered`、`GuardNotAllOrdered`：关闭与重开），规则编号 PR01–PR06。
 
 - 用法：命令先读申请（加锁），`Lifecycle.Decide(状态, 命令)`，按格行事；变状态只经 `Transition`（带前置状态的条件更新、发事件、按格审计）。
 - **加一个状态或命令**：在表里加一列或一行并定下每一格（`TestTheLifecycleDecidesEveryCell`）；同步改 `docs/design.md` 的同一张表（`TestTheDesignDocumentIsTheLifecycle` 逐格比较）；集成测试的注释写上规则编号（`TestEveryRuleIsTested`）；契约里的状态枚举一并改。
@@ -21,13 +21,14 @@
 | `lifecycle.go` | 状态、命令、附加条件；表 `Lifecycle`；`Set`、`Transition` |
 | `lifecycle_test.go` | 单元测试：每一格都定了；设计文档的表与代码逐格相同；每条规则都有集成测试写明 |
 | `records.go` | `Requisition`、`Line`、`Product`（事件的形状）；读取的 SQL（`cols`、`scan`、`get`、`read`）与 `emit` |
-| `ordering.go` | `Take`、`Apply`（按申请身份顺序加锁：只从已批准、同法人、同产品同单位的申请行取，不超过申请数量；退回不看状态）、`settle`（全部转完关闭、退回后重开，发事件） |
+| `approval.go` | 申请的审批（线协议第 17 章）：流程定义 `Flow`、`Document`、依据摘要 `basis`（每行的产品、数量、单位；关键修订号固定为 1）、钩子 `FlowDocument` 与 `FlowEnded`（批准或驳回，意见是原因）、`startApproval`、`released`（转订单前的放行核对）、`decide`（原来的批准与驳回路由经内核） |
+| `ordering.go` | `Take`、`Apply`（按申请身份顺序加锁：只从已批准、过了放行核对、同法人、同产品同单位的申请行取，不超过申请数量；退回不看状态）、`settle`（全部转完关闭、退回后重开，发事件） |
 | `requisitions.go` | 输入的检查与事务外的取证（`prepare`：部门、法人、产品可采购、单位能换算成基本单位）；`CreateRequisition`（申请人是建的人）、`GetRequisition`、`UpdateRequisition`（法人不改，行整份替换，按版本）、`Action`；`ListRequisitions` 与列表的定义 |
 
 ## 依赖与被依赖
 
 - 依赖：`core`、`masterdata`、`orgunits`（`Usable`）、`policies`（`Of`）。
-- 被依赖：`orders`（`Apply`、`Take`）；入口登记路由。
+- 被依赖：`orders`（`Apply`、`Take`）；入口登记路由，流程内核的钩子与定义（`Flow`、`FlowDocument`、`FlowEnded`）。
 
 ## 规则在哪
 

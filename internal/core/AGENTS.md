@@ -4,14 +4,14 @@
 
 ## 负责与不负责
 
-- 负责：组件 ID、依赖的 ID、流与事件类型、资源与操作、三个维度、参数、复制部门路径的表（`DepartmentTables`）（`names.go`）；资源定义 `Definitions()`（全组件一张表：列表能筛选的字段、维度的映射按资源定）；本组件的错误原因与校验、授权（`Check`）、审计（`Change`）、发件表（`Emit`）、金额乘法（`Times`）、“能力不支持”的路由（`Unsupported`）、单号（`Number`）、幂等的结果（`IDResult`、`ResultID`）、可选的请求体（`BindOptional`）（`rules.go`）；生命周期表的通用写法（`lifecycle.go`）；`Base`（`base.go`）。
+- 负责：组件 ID、依赖的 ID、流与事件类型、资源与操作、三个维度、参数、复制部门路径的表（`DepartmentTables`）（`names.go`）；资源定义 `Definitions()`（全组件一张表：列表能筛选的字段、维度的映射按资源定）；本组件的错误原因与校验、授权（`Check`）、审计（`Change`）、发件表（`Emit`）、金额乘法（`Times`）、“能力不支持”的路由（`Unsupported`）、单号（`Number`）、幂等的结果（`IDResult`、`ResultID`）、可选的请求体（`BindOptional`）（`rules.go`）；生命周期表的通用写法（`lifecycle.go`）；`Base`（`base.go`：运行时与流程内核）。
 - 不负责：任何业务规则。
 
 ## 文件
 
 | 文件 | 内容 |
 | --- | --- |
-| `base.go` | `Base`：组件的运行时，每个模块函数的第一个参数 |
+| `base.go` | `Base`：组件的运行时与流程内核（`Flow`，入口建），每个模块函数的第一个参数 |
 | `names.go` | 常量；`DepartmentTables`；`fields`、`scoped`、`Definitions()`（每种资源的维度与字段）。列表能排序、筛选的字段要在这里它的资源下声明，不声明 SDK 就答 `FIELD_NOT_QUERYABLE` |
 | `rules.go` | `Err…`（本组件的原因）、表单的格式、`DocFacts`、`EntityFacts`、`Number`、`BindOptional`、`Minus`、`Per`、`Fact`、`IDResult`、`ResultID`、`Check`、`Invalid`、`NotFound`、`Unsupported`、`Decimal`、`Change`、`Emit`、`Times` |
 | `lifecycle.go` | 生命周期表：`Effect`、`Decision`、`Table`（`Decide`）、`Refused`、造格的 `RefuseCell`、`IgnoreCell`、`ProceedCell`、`MoveCell`；三项核对给各模块的单元测试用：`TableProblems`（每格都定了）、`DocumentProblems`（与设计文档的表逐格相同）、`UntestedRules`（每条规则都有集成测试写明） |

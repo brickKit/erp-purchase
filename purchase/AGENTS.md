@@ -12,7 +12,7 @@
 | 文件 | 内容 |
 | --- | --- |
 | `definition.go` | `Version`、端口、迁移；`Definition()` 把身份、流、资源与操作（`core.Definitions()`）收成组件定义 |
-| `module.go` | `Module` 与 `New`；`Routes`（用户面的每条路由 → 模块的处理函数与操作；预付申请与价格表答“能力不支持”）、`Services`（系统面：匹配依据只许 `erp/finance`，事实读取任一组件）、`Subscriptions`（部门事件 → `orgunits`，库存的流水 → `receipts`）、`Jobs`（每个后台工作 → 模块）；`handler`、`job`、`received` 把“先收 `*core.Base`”的模块函数适配成 SDK 的签名 |
+| `module.go` | `Module` 与 `New`（建流程内核：两种流程、钩子按单据类型转给 `orders`、`requisitions`，装了 `mdm/employee` 时目录是员工投影；`FlowKernel` 交给宿主登记标准路由，`Start` 运行员工投影）；`Routes`（用户面的每条路由 → 模块的处理函数与操作；预付申请与价格表答“能力不支持”）、`Services`（系统面：匹配依据只许 `erp/finance`，事实读取任一组件）、`Subscriptions`（部门事件 → `orgunits`，库存的流水 → `receipts`，员工的流 → 内核的员工投影）、`Jobs`（每个后台工作 → 模块；内核的重新解析与心跳）；`handler`、`job`、`received` 把“先收 `*core.Base`”的模块函数适配成 SDK 的签名 |
 | `services.go` | gRPC 方法转给模块：`Basis` → `matchbasis`，`Read` → `facts` |
 | `checks.go` | 整套恢复的核对（线协议第 14 章）：审计的每种对象按版本答“还在不在”（收货与验收同一种资源，验收的版本恒为 1；政策以法人为身份） |
 | `contract_test.go` | 单元测试：清单的 `configSchema` 与 `events`、OpenAPI 与路由一一对应、事件载荷合乎 schema、合并安全 |

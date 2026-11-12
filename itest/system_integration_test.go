@@ -6,10 +6,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io/fs"
 	"strconv"
+	"strings"
 
 	core "github.com/brickKit/erp-purchase/v3/internal/core"
 
+	protocol "github.com/brickKit/be-protocol/v3"
 	"github.com/brickKit/be-sdk-go/v3/ids"
 	"github.com/brickKit/be-sdk-go/v3/recoverypb"
 	purchasev3 "github.com/brickKit/erp-purchase/contract/v3/gen/go/be/erp/purchase/v3"
@@ -88,14 +92,16 @@ func (fx *fixture) outbox() {
 		var payload []byte
 		require.NoError(t, rows.Scan(&typ, &payload))
 		counts[typ]++
-		s, err := jsonschema.NewCompiler().Compile("../contract/events/" + typ + ".schema.json")
+		c := jsonschema.NewCompiler()
+		c.UseLoader(jsonschema.SchemeURLLoader{"file": jsonschema.FileLoader{}, "https": protocolLoader{}})
+		s, err := c.Compile("../contract/events/" + typ + ".schema.json")
 		require.NoError(t, err, typ)
 		doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(payload))
 		require.NoError(t, err)
 		assert.NoError(t, s.Validate(doc), "%s: %s", typ, payload)
 	}
 	for _, typ := range []string{core.RequisitionChanged, core.OrderChanged, core.ReceiptChanged, core.ReturnChanged,
-		core.ValuationBasis, core.ValuationWithdrawn, core.AcceptanceRecorded, core.ReturnPosted} {
+		core.ValuationBasis, core.ValuationWithdrawn, core.AcceptanceRecorded, core.ReturnPosted, core.TaskChanged} {
 		assert.NotZero(t, counts[typ], typ)
 	}
 }
@@ -133,4 +139,19 @@ func (fx *fixture) dial(as string) *grpc.ClientConn {
 	require.NoError(fx.t, err)
 	fx.t.Cleanup(func() { conn.Close() })
 	return conn
+}
+
+// protocolLoader reads be-protocol's schemas by their $id: the task events are the protocol's shared task contract.
+type protocolLoader struct{}
+
+func (protocolLoader) Load(u string) (any, error) {
+	const base = "https://brickkit.dev/be-protocol/"
+	if !strings.HasPrefix(u, base) {
+		return nil, fmt.Errorf("no schema at %s", u)
+	}
+	b, err := fs.ReadFile(protocol.Schemas, strings.TrimPrefix(u, base))
+	if err != nil {
+		return nil, err
+	}
+	return jsonschema.UnmarshalJSON(bytes.NewReader(b))
 }

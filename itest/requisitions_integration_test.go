@@ -64,8 +64,8 @@ func (fx *fixture) requisitions() {
 
 	// PR03: not approved by its submitter; approved by another; approving again answers it as it is
 	code, out = fx.alice.do("POST", "/api/purchase/requisitions/"+id+"/approve", nil)
-	assert.Equal(t, 409, code, out)
-	assert.Equal(t, "APPROVER_IS_SUBMITTER", out["reason"])
+	assert.Equal(t, 403, code, out) // the flow kernel's check by person (P17.10; 3.0.7, before: APPROVER_IS_SUBMITTER)
+	assert.Equal(t, "SELF_APPROVAL", out["reason"])
 	r = fx.reqAction(fx.bob, id, "approve", nil, 200)
 	assert.Equal(t, "approved", r["state"])
 	again := fx.reqAction(fx.bob, id, "approve", nil, 200)

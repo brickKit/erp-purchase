@@ -38,8 +38,9 @@ const (
 const (
 	// GuardPolicy: a legal entity whose policy needs no approval has a submitted requisition approved at once.
 	GuardPolicy = "the policy needs no approval: approved at once"
-	// GuardNotSubmitter: the approver is not the one who submitted (by account).
-	GuardNotSubmitter = "not by the one who submitted it"
+	// GuardFlow: approving and rejecting are decisions on the requisition's approval task: the flow kernel checks the
+	// candidate, the submitter's person, the operation and the qualification, and FlowEnded moves the requisition.
+	GuardFlow = "a decision on the approval task"
 	// GuardNothingOrdered: an approved requisition is cancelled only when nothing was ordered from it.
 	GuardNothingOrdered = "nothing was ordered from it"
 	// GuardAllOrdered: every line was ordered whole; GuardNotAllOrdered: a line has some left again.
@@ -77,7 +78,7 @@ var Lifecycle = core.Table{
 		},
 		Approve: {
 			Draft:     refuse("PR03", "only a submitted requisition is approved; this one is {state}"),
-			Submitted: {Rule: "PR03", Effect: core.Move, To: Approved, Op: core.OpReqApprove, Guard: GuardNotSubmitter},
+			Submitted: {Rule: "PR03", Effect: core.Move, To: Approved, Op: core.OpReqApprove, Guard: GuardFlow},
 			Approved:  core.IgnoreCell("PR03"),
 			Rejected:  refuse("PR03", "only a submitted requisition is approved; this one is {state}"),
 			Cancelled: refuse("PR03", "only a submitted requisition is approved; this one is {state}"),
@@ -85,7 +86,7 @@ var Lifecycle = core.Table{
 		},
 		Reject: {
 			Draft:     refuse("PR04", "only a submitted requisition is rejected; this one is {state}"),
-			Submitted: core.MoveCell("PR04", Rejected, core.OpReqApprove),
+			Submitted: {Rule: "PR04", Effect: core.Move, To: Rejected, Op: core.OpReqApprove, Guard: GuardFlow},
 			Approved:  refuse("PR04", "only a submitted requisition is rejected; this one is {state}"),
 			Rejected:  core.IgnoreCell("PR04"),
 			Cancelled: refuse("PR04", "only a submitted requisition is rejected; this one is {state}"),

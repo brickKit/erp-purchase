@@ -4,8 +4,10 @@
 //   - access, by the authorization admin: the role maintain (the seed user: every operation, legal entity, department
 //     and owner); test.buyer.cn, a buyer of CN01: requisitions read in CN01, orders, receipts, acceptances and returns
 //     kept in CN01's purchasing department (PUR) and below; test.buyer.lead, the purchasing lead: approves CN01's
-//     requisitions and orders and reads them all (an approver is never the submitter: the seed user submits);
-//   - policies: CN01 needs approval with 5% over-receipt; ES01 and US01 need none (US01 10% over-receipt);
+//     requisitions and orders and reads them all (an approver is never the submitter: the seed user submits); the
+//     maintain role also lists the paused approval tasks;
+//   - policies: CN01 needs approval by the holders of its position PUR-MGR (mdm/org's seed makes it, mdm/employee's
+//     appoints the employee test.buyer.lead is linked to) with 5% over-receipt; ES01 and US01 need none (US01 10%);
 //   - requisitions in each legal entity in every state: drafts, submitted, approved, rejected with a reason,
 //     cancelled, approved and partly ordered, ordered whole (closed), ordered then the order cancelled (approved again);
 //   - orders in every state: drafts, submitted, rejected back to draft with the reason, approved, partly received,
@@ -89,7 +91,11 @@ func segment(resource, op string, legalEntities, departments []string) sdkauthz.
 		le = sdkauthz.Atom{Kind: "in", Values: legalEntities}
 	}
 	s.Atoms = map[string]sdkauthz.Atom{"legal_entity": le}
-	if resource == "erp.purchase.policy" {
+	switch resource {
+	case "erp.purchase.policy":
+		return s
+	case "erp.purchase.flow": // the approval tasks' resource has no dimension
+		s.Atoms = map[string]sdkauthz.Atom{}
 		return s
 	}
 	dept := sdkauthz.Atom{Kind: "all"}
@@ -124,8 +130,10 @@ var (
 	retEdit     = [2]string{"erp.purchase.return", "erp.purchase.return.edit"}
 	polRead     = [2]string{"erp.purchase.policy", "erp.purchase.policy.read"}
 	polManage   = [2]string{"erp.purchase.policy", "erp.purchase.policy.manage"}
+	flowDecide  = [2]string{"erp.purchase.flow", "erp.purchase.flow.decide"}
+	flowManage  = [2]string{"erp.purchase.flow", "erp.purchase.flow.manage"}
 	everyAction = [][2]string{reqRead, reqEdit, reqApprove, ordRead, ordEdit, ordApprove, recRead, recCreate, retRead, retEdit,
-		polRead, polManage}
+		polRead, polManage, flowDecide, flowManage}
 )
 
 type product struct {
@@ -141,6 +149,7 @@ type world struct {
 	products  []product
 	suppliers map[string][]supplier // active supplier roles by legal entity code
 	whs       map[string]string     // warehouse code → ID
+	approver  string                // CN01's position PUR-MGR: its holders approve CN01's requisitions and orders
 }
 
 type supplier struct{ id, currency string }
@@ -164,7 +173,7 @@ func main() {
 	cn, pur := []string{w.les["CN01"]}, []string{w.paths["CN01"]["PUR"]}
 	buyer := append(segments(cn, nil, reqRead, reqEdit), segments(cn, pur, ordRead, ordEdit, recRead, recCreate, retRead, retEdit)...)
 	buyer = append(buyer, segment(polRead[0], polRead[1], cn, nil))
-	lead := segments(cn, nil, reqRead, reqApprove, ordRead, ordApprove, recRead, retRead, polRead)
+	lead := segments(cn, nil, reqRead, reqApprove, ordRead, ordApprove, recRead, retRead, polRead, flowDecide)
 	_, err = a.GrantRoles([]seed.RoleSpec{
 		{Key: "maintain", Name: prefix + "采购维护", To: []string{user}, Segments: segments(nil, nil, everyAction...)},
 		{Key: "buyer-cn", Name: prefix + "采购员（CN01 采购部）", To: []string{"test.buyer.cn"}, Segments: buyer},
@@ -212,6 +221,14 @@ func read(t string) world {
 			fail("mdm/org has no CN01 department %s: run its seed first", d)
 		}
 	}
+	for _, p := range org.pages("/api/org/positions?state=active&q=PUR-MGR&legal_entity_id="+w.les["CN01"], "positions") {
+		if p["code"] == "PUR-MGR" {
+			w.approver = p["id"].(string)
+		}
+	}
+	if w.approver == "" {
+		fail("mdm/org has no CN01 position PUR-MGR: run its seed first")
+	}
 	mdmProduct := client{seed.NewClient(env("MDM_PRODUCT_URL", "http://localhost:18082"), t)}
 	for _, p := range mdmProduct.pages("/api/product/products?state=active", "products") {
 		pr := product{id: p["id"].(string), code: p["code"].(string), kind: p["kind"].(string), tracking: p["tracking"].(string),
@@ -254,16 +271,18 @@ func read(t string) world {
 
 // policies sets each legal entity's policy when it differs: a second run changes nothing.
 func policies(c client, w world) {
-	for le, want := range map[string][2]string{"CN01": {"required", "5"}, "ES01": {"none", "0"}, "US01": {"none", "10"}} {
+	for le, want := range map[string][3]any{"CN01": {"required", "5", w.approver}, "ES01": {"none", "0", nil},
+		"US01": {"none", "10", nil}} {
 		path := "/api/purchase/policies/" + w.les[le]
 		st, cur, err := c.UntilGranted(30*time.Second, "GET", path, nil)
 		check(err)
 		if st != 200 {
 			fail("policy %s: %d %v", le, st, cur)
 		}
-		if cur["approval"] == want[0] && cur["over_receipt_percent"] == want[1] {
+		if cur["approval"] == want[0] && cur["over_receipt_percent"] == want[1] && cur["approver_position_id"] == want[2] {
 			continue
 		}
-		c.must("PUT", path, map[string]any{"approval": want[0], "over_receipt_percent": want[1], "version": cur["version"]})
+		c.must("PUT", path, map[string]any{"approval": want[0], "over_receipt_percent": want[1],
+			"approver_position_id": want[2], "version": cur["version"]})
 	}
 }

@@ -51,9 +51,12 @@ var (
 	// PO09: more than erp/costing's FIFO layer of the receipt has in stock (protocol 05b, the purchase return)
 	ErrReturnExceedsLayer = errs.Define(ID, "RETURN_EXCEEDS_COST_LAYER", errs.FailedPrecondition, 409, errs.RetryNo,
 		"More of the receipt than its cost layer has in stock: erp/costing values by FIFO and the rest has left")
-	// PR03, PO04: an approver is not the one who submitted (by account)
-	ErrApprover = errs.Define(ID, "APPROVER_IS_SUBMITTER", errs.FailedPrecondition, 409, errs.RetryNo,
-		"The one who submitted it does not approve it")
+	// PR02, PO03: the policy wants an approval and names no approver
+	ErrNoApprover = errs.Define(ID, "NO_APPROVER_CONFIGURED", errs.FailedPrecondition, 409, errs.RetryNo,
+		"The legal entity's purchase policy wants an approval but names no approver (a position or a principal)")
+	// PO07, PO08, PR06: the release check (be-protocol P17.7) did not release the document
+	ErrNotReleased = errs.Define(ID, "NOT_RELEASED", errs.FailedPrecondition, 409, errs.RetryNo,
+		"The document's approval does not cover it as it is now")
 )
 
 var (

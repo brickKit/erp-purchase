@@ -13,7 +13,7 @@
 | `returns` | 采购退货：按收货流水的可退扣减、逐行经库存出库、重发的工作项 | `core`、`masterdata`、`orders` |
 | `orders` | 采购订单与它的生命周期（一张表，状态唯一的写入）；申请行转订单行的取用与退回 | `core`、`masterdata`、`orgunits`、`policies`、`requisitions` |
 | `requisitions` | 采购申请与它的生命周期（一张表，状态唯一的写入）；被订单取用的数量 | `core`、`masterdata`、`orgunits`、`policies` |
-| `policies` | 按法人的采购政策：要不要审批、超收比例 | `core` |
+| `policies` | 按法人的采购政策：要不要审批、审批人、超收比例 | `core` |
 | `orgunits` | 部门投影（协议 02） | `core`、`masterdata` |
 | `matchbasis` | 系统面的匹配依据（`MatchService.Basis`，给 `erp/finance`） | `core` |
 | `facts` | 系统面的增量事实按身份读取（`FactService.Read`） | `core` |
@@ -40,6 +40,7 @@
 - **生命周期是一张表**：申请与订单在哪个状态能做什么、状态怎样变，只在它模块的 `lifecycle.go`（`core.Table`：通用的格、`Decide`、`Refused` 与三项核对在 `core/lifecycle.go`）；别处按格行事，变状态只经该模块的 `Transition`。
 - **订单行的进度列各有唯一的写入**：`receiving_base_qty` 与 `received_base_qty` 只在 `receipts`（建收货、`record`、`fail`）与 `returns`（过账减已收）；`accepted_qty`、`accepted_amt` 只在 `acceptances`。写完都调 `orders.Progressed`（发订单事件、收足即完成）。
 - **增量事实只经 `core.Fact`**：发事件与存进 `purchase_fact` 在同一个事务，`FactService.Read` 才答得出漏掉的事实。
+- **审批经流程内核**：`core.Base.Flow` 是 SDK 的流程内核（入口建）；申请与订单各在自己的 `approval.go` 里给出流程定义、锁单据的钩子、结束处理、依据摘要，提交时启动、取消与修订时撤回或取代、执行前放行核对；实例与任务的状态只由内核写。
 - **事务外取证、事务内写**：上游调用都在 `masterdata`，在事务之前；写入、审计（`core.Change`）与发件表（`core.Emit`）同一个事务。
 
 ## 加一个模块

@@ -45,8 +45,9 @@ const (
 	GuardPolicy = "the policy needs no approval: approved at once"
 	// GuardEvidence: an order is submitted only as it was when its evidence was taken (its version).
 	GuardEvidence = "the order is as when its evidence was taken"
-	// GuardNotSubmitter: the approver is not the one who submitted (by account).
-	GuardNotSubmitter = "not by the one who submitted it"
+	// GuardFlow: approving and rejecting are decisions on the order's approval task: the flow kernel checks the
+	// candidate, the submitter's person, the operation and the qualification, and FlowEnded moves the order.
+	GuardFlow = "a decision on the approval task"
 	// GuardProgress: a revision keeps each line at least what it received, is receiving and accepted, and drops only
 	// lines without progress.
 	GuardProgress = "no line below its progress"
@@ -91,7 +92,7 @@ var Lifecycle = core.Table{
 		},
 		Approve: {
 			Draft:     refuse("PO04", "only a submitted order is approved; this one is {state}"),
-			Submitted: {Rule: "PO04", Effect: core.Move, To: Approved, Op: core.OpOrderApprove, Guard: GuardNotSubmitter},
+			Submitted: {Rule: "PO04", Effect: core.Move, To: Approved, Op: core.OpOrderApprove, Guard: GuardFlow},
 			Approved:  core.IgnoreCell("PO04"),
 			Completed: refuse("PO04", "only a submitted order is approved; this one is {state}"),
 			Closed:    refuse("PO04", "only a submitted order is approved; this one is {state}"),
@@ -99,7 +100,7 @@ var Lifecycle = core.Table{
 		},
 		Reject: {
 			Draft:     refuse("PO05", "only a submitted order is rejected; this one is {state}"),
-			Submitted: core.MoveCell("PO05", Draft, core.OpOrderApprove),
+			Submitted: {Rule: "PO05", Effect: core.Move, To: Draft, Op: core.OpOrderApprove, Guard: GuardFlow},
 			Approved:  refuse("PO05", "only a submitted order is rejected; this one is {state}"),
 			Completed: refuse("PO05", "only a submitted order is rejected; this one is {state}"),
 			Closed:    refuse("PO05", "only a submitted order is rejected; this one is {state}"),

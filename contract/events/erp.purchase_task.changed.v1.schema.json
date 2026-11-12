@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://brickkit.dev/erp-purchase/events/erp.purchase_task.changed.v1.schema.json",
+  "title": "erp.purchase_task.changed.v1",
+  "description": "An approval task of a requisition (task type erp.purchase.requisition.approval) or an order (erp.purchase.order.approval), its complete state at each change, by version (be-protocol P17.15). The payload is the protocol's shared task contract; infra/workflow takes it from the publishers its deployment chose. The summary carries only fields its candidates may see: the number, the supplier's name, the total and the currency of an order; the number and the count of lines of a requisition.",
+  "$ref": "https://brickkit.dev/be-protocol/schemas/flow/task.v1.schema.json"
+}

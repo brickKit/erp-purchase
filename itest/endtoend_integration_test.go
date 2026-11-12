@@ -93,6 +93,7 @@ func TestPurchaseEndToEnd(t *testing.T) {
 	fx.requisitions()
 	fx.purchaseOrders()
 	fx.fromRequisitions()
+	fx.approvals()
 	fx.departments()
 	fx.receipts()
 	fx.acceptances()

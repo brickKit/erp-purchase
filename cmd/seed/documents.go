@@ -48,9 +48,10 @@ func (s *seeder) ok(c client, path, key string, body any, want ...int) map[strin
 func (s *seeder) approves() bool { return s.le == "CN01" }
 
 // asLead approves or rejects a submitted requisition or order as the purchasing lead, waiting for the lead's grant
-// the first time.
+// the first time and for the approval task to name the lead: a task made before the employee projection was current
+// waits paused until the kernel resolves it again (every minute), and the lead is no candidate till then (403).
 func (s *seeder) asLead(path string, body any) {
-	st, out, err := s.lead.UntilGranted(30*time.Second, "POST", path, body)
+	st, out, err := s.lead.UntilGranted(3*time.Minute, "POST", path, body)
 	check(err)
 	if st != 200 {
 		fail("POST %s as the purchasing lead: %d %v", path, st, out)

@@ -174,6 +174,9 @@ func CreateReceipt(m *core.Base, c *httpx.Context) error {
 		if d := orders.Lifecycle.Decide(cur.State, orders.Receive); d.Effect != core.Proceed {
 			return idem.Outcome{}, core.Refused(d, cur.State)
 		}
+		if err := orders.Released(m, ctx, tx, cur); err != nil { // the approval covers the order as it is (P17.7)
+			return idem.Outcome{}, err
+		}
 		p, err := policies.Of(ctx, tx, cur.LegalEntityID)
 		if err != nil {
 			return idem.Outcome{}, err

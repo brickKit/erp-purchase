@@ -8,7 +8,6 @@ import (
 
 	core "github.com/brickKit/erp-purchase/v3/internal/core"
 	masterdata "github.com/brickKit/erp-purchase/v3/internal/masterdata"
-	policies "github.com/brickKit/erp-purchase/v3/internal/policies"
 	requisitions "github.com/brickKit/erp-purchase/v3/internal/requisitions"
 
 	sdkauthz "github.com/brickKit/be-sdk-go/v3/authz"
@@ -78,10 +77,10 @@ func CreateOrder(m *core.Base, c *httpx.Context) error {
 		}
 		id := ids.New().String()
 		if _, err := tx.Exec(ctx, `INSERT INTO purchase_order (id, number, legal_entity_id, supplier_id, supplier_name,
-			supplier_tax_id, currency, business_date, owner_id, department_id, department_path, search, search_version)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8::date, $9, $10, $11, $12, $13)`, id, number, ev.le.ID, in.SupplierID,
+			supplier_tax_id, currency, business_date, owner_id, department_id, department_path, search, search_version, timezone)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8::date, $9, $10, $11, $12, $13, $14)`, id, number, ev.le.ID, in.SupplierID,
 			ev.supplier.Name, ev.supplier.TaxID, in.Currency, date, ev.owner, ev.deptID, ev.deptPath,
-			search.Text(number, ev.supplier.Name), search.Version); err != nil {
+			search.Text(number, ev.supplier.Name), search.Version, ev.le.Timezone); err != nil {
 			return idem.Outcome{}, err
 		}
 		if err := replaceLines(ctx, tx, id, in.Lines, ev); err != nil {
@@ -165,8 +164,9 @@ func header(ctx context.Context, tx db.Tx, o Order, in OrderIn, ev evidence, rev
 	_, err := tx.Exec(ctx, `UPDATE purchase_order SET supplier_id = $2, supplier_name = $3, supplier_tax_id = $4,
 		currency = $5, business_date = coalesce($6::date, business_date), owner_id = $7, department_id = $8,
 		department_path = $9, revision = revision + CASE WHEN $10 THEN 1 ELSE 0 END, search = $11, search_version = $12,
-		updated_at = now() WHERE id = $1`, o.ID, in.SupplierID, ev.supplier.Name, ev.supplier.TaxID, in.Currency,
-		in.BusinessDate, ev.owner, ev.deptID, ev.deptPath, revision, search.Text(o.Number, ev.supplier.Name), search.Version)
+		timezone = $13, updated_at = now() WHERE id = $1`, o.ID, in.SupplierID, ev.supplier.Name, ev.supplier.TaxID,
+		in.Currency, in.BusinessDate, ev.owner, ev.deptID, ev.deptPath, revision, search.Text(o.Number, ev.supplier.Name),
+		search.Version, ev.le.Timezone)
 	return err
 }
 
@@ -245,6 +245,9 @@ func ReviseOrder(m *core.Base, c *httpx.Context) error {
 		if err := ev.fresh(); err != nil {
 			return err
 		}
+		if err := m.Flow.SupersedeIn(ctx, tx, Document(o)); err != nil { // the approved revision's approval (PO06)
+			return err
+		}
 		if err := reviseLines(ctx, tx, o, in.Lines, ev); err != nil {
 			return err
 		}
@@ -254,7 +257,7 @@ func ReviseOrder(m *core.Base, c *httpx.Context) error {
 		if err := finish(m, ctx, tx, o, in.Lines, actor); err != nil {
 			return err
 		}
-		set, err := submitted(ctx, tx, o, &d, actor)
+		set, err := startApproval(m, ctx, tx, o.ID, &d, actor)
 		if err != nil {
 			return err
 		}
@@ -267,27 +270,14 @@ func ReviseOrder(m *core.Base, c *httpx.Context) error {
 	return c.JSON(200, out)
 }
 
-// submitted is what a submission or a revision writes (GuardPolicy): its submitter, and when the legal entity's
-// policy needs no approval, the order approved at once by its submitter.
-func submitted(ctx context.Context, tx db.Tx, o Order, d *core.Decision, actor string) (Set, error) {
-	set := Set{SubmittedBy: actor, Unapprove: true}
-	p, err := policies.Of(ctx, tx, o.LegalEntityID)
-	if err != nil {
-		return set, err
-	}
-	if !p.NeedsApproval() {
-		d.To, set.ApprovedBy = Approved, actor
-	}
-	return set, nil
-}
-
 type actionIn struct {
 	Version *int64  `json:"version"`
 	Reason  *string `json:"reason"`
 }
 
 // Action is one of the commands submit, approve, reject, close and cancel, as the table decides it in the order's
-// state; an ignored command answers the order as it is.
+// state; an ignored command answers the order as it is. Approve and reject are decisions on the order's approval task
+// (decide).
 func Action(m *core.Base, command string) httpx.Handler {
 	op := core.OpOrderEdit
 	if command == Approve || command == Reject {
@@ -307,13 +297,13 @@ func Action(m *core.Base, command string) httpx.Handler {
 			return err
 		}
 		d := Lifecycle.Decide(cur.State, command)
-		set := Set{}
-		if command == Reject {
-			if d.Effect == core.Move && (in.Reason == nil || strings.TrimSpace(*in.Reason) == "") {
-				return core.Invalid("reason", "a rejection has its reason")
-			}
-			set.Reason = in.Reason
+		if command == Reject && d.Effect == core.Move && (in.Reason == nil || strings.TrimSpace(*in.Reason) == "") {
+			return core.Invalid("reason", "a rejection has its reason")
 		}
+		if d.Guard == GuardFlow {
+			return decide(m, c, ctx, cur, command, in)
+		}
+		set := Set{}
 		var ev evidence
 		if d.Guard == GuardPolicy { // PO03: the evidence taken again on submitting
 			if ev, err = again(m, ctx, cur); err != nil {
@@ -345,14 +335,9 @@ func Action(m *core.Base, command string) httpx.Handler {
 				if err := ev.fresh(); err != nil {
 					return err
 				}
-				if set, err = submitted(ctx, tx, o, &d, actor); err != nil {
+				if set, err = startApproval(m, ctx, tx, o.ID, &d, actor); err != nil {
 					return err
 				}
-			case GuardNotSubmitter:
-				if o.SubmittedBy != nil && *o.SubmittedBy == actor {
-					return core.ErrApprover.New("the order was submitted by " + actor + ": another approves it")
-				}
-				set.ApprovedBy = actor
 			case GuardNothingReceiving:
 				for _, l := range o.Lines {
 					if l.Receiving != "0" {
@@ -368,6 +353,13 @@ func Action(m *core.Base, command string) httpx.Handler {
 			}
 			if command == Cancel { // a cancelled order gives back what it took from requisitions (PR06)
 				if err := requisitions.Apply(m, ctx, tx, o.LegalEntityID, takes(o.Lines, nil), actor); err != nil {
+					return err
+				}
+				end := m.Flow.WithdrawIn // a pending approval is withdrawn, an approved one superseded (PO11)
+				if o.State == Approved {
+					end = m.Flow.SupersedeIn
+				}
+				if err := end(ctx, tx, Document(o)); err != nil {
 					return err
 				}
 			}

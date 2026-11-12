@@ -21,6 +21,9 @@ const (
 	// Costing says how much of a receipt may go back before a purchase return (LayerService.ReturnLimit, protocol 05b);
 	// optional: without it nothing but the receipt movement limits a return.
 	Costing = "erp/costing"
+	// Employee is the source of the flow kernel's employee projection (who holds a position, the person behind an
+	// account); optional: without it an approver is a named principal and duties are separated by account.
+	Employee = "mdm/employee"
 )
 
 // The stream and its event types (contract/events).
@@ -34,6 +37,9 @@ const (
 	ValuationWithdrawn = "erp.purchase_receipt.valuation_basis_withdrawn.v1"
 	AcceptanceRecorded = "erp.purchase_acceptance.recorded.v1"
 	ReturnPosted       = "erp.purchase_return.posted.v1"
+	// the approval tasks (be-protocol P17.15, P17.18; the shared task contract)
+	TaskChanged   = "erp.purchase_task.changed.v1"
+	TaskHeartbeat = "erp.purchase_task.heartbeat.v1"
 	// the source stream of the department projection
 	OrgStream       = "mdm.org"
 	OrgUnitChanged  = "mdm.org_unit.changed.v1"
@@ -63,8 +69,13 @@ const (
 	Policies        = "erp.purchase.policy"
 	OpPolicyRead    = "erp.purchase.policy.read"
 	OpPolicyManage  = "erp.purchase.policy.manage"
-	System          = "erp.purchase.system"
-	OpSysRead       = "erp.purchase.system.read"
+	// Flows is the approval tasks' resource: the flow kernel's standard routes are registered with OpFlowDecide (a
+	// decision itself needs its flow's approve operation); OpFlowManage lists the paused tasks.
+	Flows        = "erp.purchase.flow"
+	OpFlowDecide = "erp.purchase.flow.decide"
+	OpFlowManage = "erp.purchase.flow.manage"
+	System       = "erp.purchase.system"
+	OpSysRead    = "erp.purchase.system.read"
 	// OpResend is the redelivery of this component's stream (be-protocol P6.38: every component with streams serves
 	// it; any component of the deployment may call it).
 	OpResend = "erp.purchase.system.resend"
@@ -77,6 +88,16 @@ const (
 	DimLegalEntity = "legal_entity"
 	DimDepartment  = "department"
 	DimOwner       = "owner"
+)
+
+// The approval flows (be-protocol P17.1): one a document type, their task types registered here.
+const (
+	OrderFlow           = "erp.purchase.order"
+	OrderTaskType       = "erp.purchase.order.approval"
+	OrderDocument       = "purchase_order"
+	RequisitionFlow     = "erp.purchase.requisition"
+	RequisitionTaskType = "erp.purchase.requisition.approval"
+	RequisitionDocument = "requisition"
 )
 
 // Parameters (protocol 07, protocol 14).
@@ -145,7 +166,10 @@ func Definitions() *sdkauthz.Definitions {
 			{Type: Returns, ViewOperation: OpReturnRead, Dimensions: scoped("owner_id"), Fields: fields(ReturnFields...)},
 			{Type: Policies, ViewOperation: OpPolicyRead,
 				Dimensions: map[string]sdkauthz.Dimension{DimLegalEntity: {Kind: sdkauthz.ValueSet, Column: "legal_entity_id"}},
-				Fields:     fields("legal_entity_id", "approval", "over_receipt_percent", "version")},
+				Fields: fields("legal_entity_id", "approval", "approver_position_id", "approver_principal",
+					"over_receipt_percent", "version")},
+			{Type: Flows, ViewOperation: OpFlowDecide, Dimensions: map[string]sdkauthz.Dimension{},
+				Fields: map[string]sdkauthz.Field{}},
 			{Type: System, ViewOperation: OpSysRead, Dimensions: map[string]sdkauthz.Dimension{},
 				Fields: map[string]sdkauthz.Field{}},
 		},
@@ -162,6 +186,8 @@ func Definitions() *sdkauthz.Definitions {
 			low(OpReturnEdit, Returns, "manage", true),
 			low(OpPolicyRead, Policies, "read", false),
 			low(OpPolicyManage, Policies, "manage", true),
+			low(OpFlowDecide, Flows, "read", false),
+			low(OpFlowManage, Flows, "read", false),
 			low(OpSysRead, System, "read", false),
 			{Key: OpResend, ResourceType: System, Purpose: "read", RiskClass: "low"},
 			{Key: OpRecover, ResourceType: System, Purpose: "read", RiskClass: "low"},

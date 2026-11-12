@@ -78,6 +78,9 @@ func Apply(m *core.Base, ctx context.Context, tx db.Tx, legalEntity string, take
 			if r.LegalEntityID != legalEntity || l.ProductID != t.ProductID || l.Unit != t.Unit {
 				return core.ErrRequisition.New("requisition line " + t.LineID + " is of another legal entity, product or unit")
 			}
+			if err := released(m, ctx, tx, r); err != nil {
+				return err
+			}
 		}
 		tag, err := tx.Exec(ctx, `UPDATE requisition_line SET ordered_qty = ordered_qty + $2::numeric
 			WHERE id = $1 AND ordered_qty + $2::numeric BETWEEN 0 AND quantity`, t.LineID, t.Quantity)
