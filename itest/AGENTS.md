@@ -22,7 +22,7 @@
 | `receipts_integration_test.go` | `receipts` | 收货：过账与收货计价依据（每基本单位）、超收比例（上海 10%、北京 0%，收货中计入）、收足即完成、库存不答复（202、关闭与取消被拒、工作项重发后过账）、答复丢失由流水事件补齐且只算一次、库存拒绝（失败、撤回计价依据）、服务行与草稿订单不能收货、收货中没有时关闭 | PO07、PO10、PO11、PO12；协议 05b 的计价依据与撤回 | `receipts`、`orders` |
 | `acceptances_integration_test.go` | `acceptances` | 服务验收：按数量（金额按单价）、按金额、超收比例的两维、库存物资行与空行被拒、有验收的订单不能取消、草稿不能验收、验收足即完成且不再验收 | PO08、PO11、PO12；协议 05 的验收事实 | `acceptances`、`orders` |
 | `returns_integration_test.go` | `returns`、`returnLimits` | 采购退货：已完成的订单退货后仍是已完成、超出流水的可退整笔拒绝且不建单、库存拒绝（失败、数量退回）、库存不答复（202、工作项重发）、已关闭的订单能退、别的订单的流水与草稿被拒；成本组件的可退数量（超过整笔拒绝、同一流水的行合计、重放不核对、不答复不拦） | PO09；协议 05b 的退货事实 | `returns`、`orders` |
-| `attachments_integration_test.go` | `attachments` | 订单附件：上传会话是用户的、不认识的类别被拒、发票扫描件要它的读权限、看不见订单答 404；列表滤掉看不到的发票扫描件；普通类别给地址、严格类别给凭证；别的订单的附件与看不到的发票扫描件下载、删除答 404；取消的订单解除全部附件并以当天为保留起算、之后不收附件；关闭的订单设置保留起算 | 设计的“附件”；协议 12、D68 | `attachments`、`orders`（结束的工作项） |
+| `attachments_integration_test.go` | `attachments` | 订单附件：上传会话是用户的、不认识的类别被拒、发票扫描件要它的读权限、看不见订单答 404；类别按字段看得到（Erin 有合同字段、Frank 没有附件字段、Gina 有发票字段却没有读键）；替换看不到的发票扫描件答 404（不写类别或写别的类别都一样）；列表滤掉看不到的类别；已完成的订单上传时设保留起算；普通类别给地址、严格类别给凭证；别的订单的附件与看不到的发票扫描件下载、删除答 404；取消的订单解除全部附件并以当天为保留起算、之后不收附件；关闭的订单设置保留起算 | 设计的“附件”；协议 12、D68 | `attachments`、`orders`（结束的工作项） |
 | `system_integration_test.go` | `systemSurface`、`outbox`、`recoveryChecks` | 系统面：匹配依据（已完成又退过货的订单按流水、按行问服务行、不认识的订单、空问法、只许 `erp/finance`）、事实按身份读回；每个事件合乎 schema、每种类型都发过；整套恢复的核对只许恢复工具，审计的每种对象按版本答“还在不在” | D50、协议 05；协议 02；线协议第 14 章、P14.3 | `matchbasis`、`facts`、入口 `purchase/checks.go` |
 | `approvals_integration_test.go` | `approvals` | 审批经流程内核：没配审批人被拒、任务按共享任务契约发布（候选是政策的个人）、谁能读任务、标准路由的驳回要意见、旧版本与自审被拒、驳回回草稿带原因、再提交是新实例、同一幂等键重放、旧路由；放行核对（改了修订号不放行）；取消撤回；岗位而没有员工组件时暂停、异常入口；申请的驳回 | PO03–PO05、PO08、PO11；PR02–PR04；线协议 P17.3、P17.7、P17.8、P17.10、P17.11、P17.14、P17.15 | `orders`、`requisitions`、`policies`、入口 |
 | `departments_integration_test.go` | `departments`、`laterOrgEvents` | 按部门维度读订单与申请；部门移到另一部门之下，它们跟着走；不认识的动作标为不完整并补取，同一流上的法人不是部门 | 安全 07；P6.33、PJ36 | `orgunits`、`orders`、`requisitions` |
@@ -31,7 +31,7 @@
 
 | 文件 | 内容 |
 | --- | --- |
-| `endtoend_integration_test.go` | `TestPurchaseEndToEnd`（各步的顺序）；`fixture`（运行中的成员、替身、世界的 ID：上海与北京两个法人，Alice 与 Bob 两个采购员，只看北京申请的 Carol；`departments` 步里加的 Dave 只看部门 1 的树；`attachments` 步里加的 Erin 编辑与读全部订单、看不到发票扫描件）；辅助：申请与订单的建、动作与“被状态拒绝”（各在自己的文件）；`start`（建世界、替身与 `mdm/org` 的流，迁移并运行成员）；辅助：`client.do`（新的幂等键）、`at`、`get`、`unit`、`publishOrgUnit`、`publishOrg`、`publishMovement`、`portFree` |
+| `endtoend_integration_test.go` | `TestPurchaseEndToEnd`（各步的顺序）；`fixture`（运行中的成员、替身、世界的 ID：上海与北京两个法人，Alice 与 Bob 两个采购员，只看北京申请的 Carol；`departments` 步里加的 Dave 只看部门 1 的树；`attachments` 步里加的 Erin、Frank、Gina 编辑与读全部订单，各自能读的附件字段不同）；辅助：申请与订单的建、动作与“被状态拒绝”（各在自己的文件）；`start`（建世界、替身与 `mdm/org` 的流，迁移并运行成员）；辅助：`client.do`（新的幂等键）、`at`、`get`、`unit`、`publishOrgUnit`、`publishOrg`、`publishMovement`、`portFree` |
 | `standins_integration_test.go` | 替身，各按已发布的契约经 mTLS 答：四个主数据组件（供应商一个可用、一个暂停；产品一个库存物资、12 EA 一盒，一个服务）；测试自己扮演 `mdm/org` 发部门事件；库存的 `StockService.Receive` 按收货身份幂等，每行一条流水并作为 `erp.inventory_movement.recorded.v1` 发出（测试替它的转发），可以设成拒绝、答复丢失、不可达；`Return` 按退货行身份幂等，同样可以拒绝、不可达；附件组件的 `AttachmentService`：上传会话立即算可用的附件，普通类别下载给地址、严格类别给凭证，记下每次调用（`last`、`find`） |
 
 ## 加测试

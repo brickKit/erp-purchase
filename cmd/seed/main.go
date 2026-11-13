@@ -41,6 +41,8 @@ import (
 
 	sdkauthz "github.com/brickKit/be-sdk-go/v3/authz"
 	"github.com/brickKit/be-sdk-go/v3/seed"
+
+	core "github.com/brickKit/erp-purchase/v3/internal/core"
 )
 
 const prefix = "「本地测试」"
@@ -110,8 +112,15 @@ func segment(resource, op string, legalEntities, departments []string) sdkauthz.
 		}
 	}
 	s.Atoms["department"], s.Atoms["owner"] = dept, sdkauthz.Atom{Kind: "all"}
+	if resource == "erp.purchase.order" { // the attachment categories are seen by their fields (assembly protocol 12)
+		s.ReadFields = orderReadFields
+	}
 	return s
 }
+
+// orderReadFields are the order's fields every purchase role reads: its own and both attachment fields; the invoice
+// scans are restricted, so only the roles that also hold erp.purchase.order.read_invoice see them.
+var orderReadFields = append(append([]string{}, core.OrderFields...), "contract_file", "invoice_scan")
 
 func segments(les, depts []string, ops ...[2]string) []sdkauthz.Segment {
 	var out []sdkauthz.Segment

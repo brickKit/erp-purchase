@@ -11,7 +11,7 @@
 
 | 文件 | 内容 |
 | --- | --- |
-| `attachments.go` | `Upload`、`List`、`Download`、`Remove`、`Ended`；`readable`（发票扫描件要 `core.OpOrderReadInvoice`） |
+| `attachments.go` | `Upload`、`List`、`Download`、`Remove`、`Ended`；`fields`（订单读权限的可读字段，受限字段另核读键）、`readable`（类别的字段在不在里面） |
 
 ## 依赖与被依赖
 

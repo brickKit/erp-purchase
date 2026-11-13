@@ -22,7 +22,7 @@
 - 依赖 `mdm/org`、`mdm/partner`、`mdm/product`、`mdm/currency`，经它们的系统面读取；库存是可选的。
 - 审批：每个要审批的法人在采购政策里配审批人，没配时提交答 409 `NO_APPROVER_CONFIGURED`。按岗位审批要装 `mdm/employee`（本组件补取它的流 `mdm.employee` 并读快照，投影任职与账号关联）；**没装员工组件时**，政策只能用指定个人（配了岗位的任务暂停 `no_assignee`），职责分离只能比较账号：同一个人用第二个账号能批准自己提交的单据（线协议 P17.12），部署方要接受这一风险或装员工组件。
 - 任务暂停（岗位上没人、员工投影不完整）时记一条告警日志（`event=flow_no_assignee`），有 `erp.purchase.flow.manage` 的人在 `GET /be/flow/tasks?state=paused` 看到；员工投影变化后每分钟重新解析。
-- 附件（装了 `infra/attachment` 时）：订单的两个附件类别声明在订单的资源定义里，附件组件从授权成员的类别目录取，不用另配；`ATTACHMENT_RETENTION` 要给保留类别 `purchase_contract`、`purchase_invoice` 的年限（在附件组件上配，没给的不清除）。看发票扫描件的人另要授予 `erp.purchase.order.read_invoice`。
+- 附件（装了 `infra/attachment` 时）：订单的两个附件类别声明在订单的资源定义里，附件组件从授权成员的类别目录取，不用另配；`ATTACHMENT_RETENTION` 要给保留类别 `purchase_contract`、`purchase_invoice` 的年限（在附件组件上配，没给的不清除）。谁看得到一个附件类别由订单读权限的可读字段决定（`contract_file`、`invoice_scan`）；看发票扫描件的人另要 `erp.purchase.order.read_invoice`。
 - 交易中心之一：负载高时单跑（协议 17）。
 
 ## 依赖说明

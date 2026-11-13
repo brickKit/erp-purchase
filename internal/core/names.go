@@ -185,6 +185,12 @@ func orderFields() map[string]sdkauthz.Field {
 	return f
 }
 
+// OrderField is one of the order's output fields (an attachment category's field among them).
+func OrderField(name string) (sdkauthz.Field, bool) {
+	f, ok := orderFields()[name]
+	return f, ok
+}
+
 // OrderFields are what an order list may filter and sort on.
 var OrderFields = []string{"id", "number", "legal_entity_id", "supplier_id", "supplier", "currency", "business_date",
 	"owner_id", "department_id", "state", "revision", "total", "submitted_by", "approved_by", "reason", "lines",
