@@ -4,23 +4,23 @@ kind: Component
 metadata:
   id: erp/purchase
   name: Purchase
-  version: 3.0.18
+  version: 3.0.19
   description: "Purchase requisitions and orders with their approval, receipts through the inventory, service acceptances and purchase returns; the receipt valuation bases erp/costing takes and the match basis erp/finance reads (protocols 05 and 05b)"
   repository: https://github.com/brickKit/erp-purchase
 
 dependencies:
   components:
-    - mdm/currency@3.0.40
-    - mdm/org@3.0.42
-    - mdm/partner@3.0.47
-    - mdm/product@3.0.45
-    - id: erp/inventory@3.0.47
+    - mdm/currency@3.0.41
+    - mdm/org@3.0.43
+    - mdm/partner@3.0.48
+    - mdm/product@3.0.46
+    - id: erp/inventory@3.0.48
       optional: true
-    - id: erp/costing@3.0.8
+    - id: erp/costing@3.0.9
       optional: true
     - id: infra/attachment@3.0.2
       optional: true
-    - id: mdm/employee@3.0.12
+    - id: mdm/employee@3.0.13
       optional: true
 
 events:
