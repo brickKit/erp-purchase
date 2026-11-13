@@ -11,7 +11,7 @@ info:
     decimal strings. Prepayments and price lists are in the contract but not in this version: they answer
     CAPABILITY_UNSUPPORTED (D75). The match basis and the read of the incremental facts are on the system surface
     (proto). Approvals run on the SDK's flow kernel (be-protocol chapter 17): its standard routes under
-    /be/flow/tasks (a decision, a task, the paused tasks) are registered by the SDK and specified by the
+    /api/purchase/flow/tasks (a decision, a task, the paused tasks) are registered by the SDK and specified by the
     protocol, not here; the approve and reject routes below decide the caller's task of the document through it.
 paths:
   /api/purchase/requisitions:

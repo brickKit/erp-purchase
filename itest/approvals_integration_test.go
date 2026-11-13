@@ -54,10 +54,10 @@ func (fx *fixture) approvals() {
 	assert.Equal(t, o["number"], at(task, "document", "number"))
 	assert.Equal(t, "100 CNY", at(task, "summary", "fields", 2, "value"))
 	tid := task["id"].(string)
-	code, got := fx.bob.do("GET", "/be/flow/tasks/"+tid, nil)
+	code, got := fx.bob.do("GET", "/api/purchase/flow/tasks/"+tid, nil)
 	require.Equal(t, 200, code, got)
 	assert.Equal(t, tid, got["id"])
-	code, out = fx.carol.do("GET", "/be/flow/tasks/"+tid, nil)
+	code, out = fx.carol.do("GET", "/api/purchase/flow/tasks/"+tid, nil)
 	assert.Equal(t, 404, code, out)
 
 	// PO05: a rejection on the standard route says why; a stale version is refused; the order goes back to draft
@@ -66,7 +66,7 @@ func (fx *fixture) approvals() {
 		if comment != nil {
 			body["comment"] = comment
 		}
-		return c.do("POST", "/be/flow/tasks/"+task+"/decisions", body, key...)
+		return c.do("POST", "/api/purchase/flow/tasks/"+task+"/decisions", body, key...)
 	}
 	code, out = decide(fx.bob, tid, task["version"], "reject", nil)
 	assert.Equal(t, 400, code, out)
@@ -169,14 +169,14 @@ func (fx *fixture) approvals() {
 	pt := fx.task(p["id"].(string))
 	assert.Equal(t, "paused", pt["state"])
 	assert.Equal(t, "no_assignee", pt["paused_reason"])
-	code, paused := fx.alice.do("GET", "/be/flow/tasks?state=paused", nil)
+	code, paused := fx.alice.do("GET", "/api/purchase/flow/tasks?state=paused", nil)
 	require.Equal(t, 200, code, paused)
 	var found bool
 	for _, x := range paused["tasks"].([]any) {
 		found = found || x.(map[string]any)["id"] == pt["id"]
 	}
 	assert.True(t, found, "the exception entry lists it")
-	code, out = fx.carol.do("GET", "/be/flow/tasks?state=paused", nil)
+	code, out = fx.carol.do("GET", "/api/purchase/flow/tasks?state=paused", nil)
 	assert.Equal(t, 404, code, out, "one who may not manage the flows sees nothing")
 	policy(bobApproves)
 
