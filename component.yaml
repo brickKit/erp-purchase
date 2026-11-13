@@ -4,7 +4,7 @@ kind: Component
 metadata:
   id: erp/purchase
   name: Purchase
-  version: 3.0.20
+  version: 3.0.21
   description: "Purchase requisitions and orders with their approval, receipts through the inventory, service acceptances and purchase returns; the receipt valuation bases erp/costing takes and the match basis erp/finance reads (protocols 05 and 05b)"
   repository: https://github.com/brickKit/erp-purchase
 
@@ -85,6 +85,9 @@ configSchema:
       type: string
     DEPLOYMENT_ID:
       description: 'process-level: the same for every member of a shell'
+      type: string
+    FLOW_ACTION_SOURCES:
+      description: 'the channel members whose button actions the approvals take: component IDs, comma separated (e.g. integration/im-dingtalk); unset: none (no buttons, the link still works)'
       type: string
     IAM_ISSUER:
       description: 'process-level: the same for every member of a shell'
