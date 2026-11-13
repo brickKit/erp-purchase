@@ -4,7 +4,7 @@ kind: Component
 metadata:
   id: erp/purchase
   name: Purchase
-  version: 3.0.22
+  version: 3.0.23
   description: "Purchase requisitions and orders with their approval, receipts through the inventory, service acceptances and purchase returns; the receipt valuation bases erp/costing takes and the match basis erp/finance reads (protocols 05 and 05b)"
   repository: https://github.com/brickKit/erp-purchase
 
@@ -38,9 +38,10 @@ events:
     - erp.purchase_task.heartbeat.v1
   subscribes:
     - erp.inventory_movement.recorded.v1
+    - integration.im_dingtalk_action.recorded.v1 # when FLOW_ACTION_SOURCES lists integration/im-dingtalk
     - mdm.employee.account_link.changed.v1
-    - mdm.employee.changed.v1
     - mdm.employee.appointment.changed.v1
+    - mdm.employee.changed.v1
     - mdm.org_unit.changed.v1
 
 deployment:
