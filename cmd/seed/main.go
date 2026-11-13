@@ -13,7 +13,10 @@
 //   - orders in every state: drafts, submitted, rejected back to draft with the reason, approved, partly received,
 //     received whole (completed), completed then a return, partly received then closed, cancelled, revised (revision 2,
 //     submitted again), services accepted by amount; CN01 has more than a page (210); receipts go through the running
-//     erp/inventory (goods not tracked or tracked by batch: no serial numbers).
+//     erp/inventory (goods not tracked or tracked by batch: no serial numbers);
+//   - attachments, when the deployment has infra/attachment: a contract file on the first approved and completed orders
+//     of CN01; the invoice scans' read (erp.purchase.order.read_invoice) is the maintain role's and the lead's, not the
+//     buyer's.
 //
 // Requisitions and orders are seeded once, into a legal entity that has none yet; a run that broke off is finished by
 // running it again within a day (the idempotency keys answer the requests already made). Policies are set only when
@@ -25,7 +28,8 @@
 //	SEED_ADMIN (test.alice)                  the authorization admin (the install claim)
 //	SEED_USER (test.bob), SEED_PASSWORD      the user that writes the data; the test accounts' password
 //	ERP_PURCHASE_URL (http://localhost:18085), MDM_ORG_URL (http://localhost:18083), MDM_PARTNER_URL (http://localhost:18225),
-//	MDM_PRODUCT_URL (http://localhost:18082), ERP_INVENTORY_URL (http://localhost:18086)
+//	MDM_PRODUCT_URL (http://localhost:18082), ERP_INVENTORY_URL (http://localhost:18086),
+//	INFRA_ATTACHMENT_URL (http://localhost:18204)
 package main
 
 import (
@@ -132,7 +136,8 @@ var (
 	polManage   = [2]string{"erp.purchase.policy", "erp.purchase.policy.manage"}
 	flowDecide  = [2]string{"erp.purchase.flow", "erp.purchase.flow.decide"}
 	flowManage  = [2]string{"erp.purchase.flow", "erp.purchase.flow.manage"}
-	everyAction = [][2]string{reqRead, reqEdit, reqApprove, ordRead, ordEdit, ordApprove, recRead, recCreate, retRead, retEdit,
+	ordInvoice  = [2]string{"erp.purchase.order", "erp.purchase.order.read_invoice"}
+	everyAction = [][2]string{reqRead, reqEdit, reqApprove, ordRead, ordEdit, ordApprove, ordInvoice, recRead, recCreate, retRead, retEdit,
 		polRead, polManage, flowDecide, flowManage}
 )
 
@@ -173,7 +178,7 @@ func main() {
 	cn, pur := []string{w.les["CN01"]}, []string{w.paths["CN01"]["PUR"]}
 	buyer := append(segments(cn, nil, reqRead, reqEdit), segments(cn, pur, ordRead, ordEdit, recRead, recCreate, retRead, retEdit)...)
 	buyer = append(buyer, segment(polRead[0], polRead[1], cn, nil))
-	lead := segments(cn, nil, reqRead, reqApprove, ordRead, ordApprove, recRead, retRead, polRead, flowDecide)
+	lead := segments(cn, nil, reqRead, reqApprove, ordRead, ordApprove, ordInvoice, recRead, retRead, polRead, flowDecide)
 	_, err = a.GrantRoles([]seed.RoleSpec{
 		{Key: "maintain", Name: prefix + "采购维护", To: []string{user}, Segments: segments(nil, nil, everyAction...)},
 		{Key: "buyer-cn", Name: prefix + "采购员（CN01 采购部）", To: []string{"test.buyer.cn"}, Segments: buyer},
@@ -194,6 +199,7 @@ func main() {
 		n := s.orders()
 		fmt.Printf("seed erp/purchase: %s: %d requisitions, %d orders\n", le, reqs, n)
 	}
+	attachments(c, w, t)
 }
 
 // read gathers what the seed needs from the components it builds on.
