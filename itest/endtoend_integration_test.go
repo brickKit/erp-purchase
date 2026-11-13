@@ -41,6 +41,7 @@ import (
 	"github.com/brickKit/be-sdk-go/v3/runtime"
 	"github.com/brickKit/be-sdk-go/v3/sectest"
 	costingv3 "github.com/brickKit/erp-costing/contract/v3/gen/go/be/erp/costing/v3"
+	attachmentv3 "github.com/brickKit/infra-attachment/contract/v3/gen/go/be/attachment/v3"
 	inventoryv3 "github.com/brickKit/erp-inventory/contract/v3/gen/go/be/erp/inventory/v3"
 	currencyv3 "github.com/brickKit/mdm-currency/contract/v3/gen/go/be/mdm/currency/v3"
 	orgv3 "github.com/brickKit/mdm-org/contract/v3/gen/go/be/mdm/org/v3"
@@ -62,6 +63,7 @@ const (
 	itCurrency  = "localhost:19115"
 	itInventory = "localhost:19116"
 	itCosting   = "localhost:19117"
+	itAttach    = "localhost:19118"
 	itSchema    = "erp_purchase_it"
 )
 
@@ -77,6 +79,7 @@ type fixture struct {
 	org   *orgStandIn
 	inv   *inventoryStandIn
 	cost  *costingStandIn
+	att   *attachmentStandIn
 	tr    events.Transport
 	rt    *runtime.Runtime // the member's runtime
 
@@ -98,6 +101,7 @@ func TestPurchaseEndToEnd(t *testing.T) {
 	fx.receipts()
 	fx.acceptances()
 	fx.returns()
+	fx.attachments()
 	fx.systemSurface()
 	fx.returnLimits()
 	fx.outbox()
@@ -139,7 +143,7 @@ func start(t *testing.T) *fixture {
 		fx.le2: {"id": fx.le2, "code": "BJ", "state": "active", "timezone": "Asia/Shanghai", "base_currency": "CNY",
 			"version": int64(1)}},
 		units: map[string]map[string]any{fx.d1: fx.unit(fx.d1, fx.le+"/"+fx.d1, 1), fx.d2: fx.unit(fx.d2, fx.le+"/"+fx.d2, 1)}}
-	portFree(t, itPort, itSystem, itOrg, itPartner, itProduct, itCurrency, itInventory, itCosting)
+	portFree(t, itPort, itSystem, itOrg, itPartner, itProduct, itCurrency, itInventory, itCosting, itAttach)
 	serve(t, itOrg, w, core.Org, func(s *grpc.Server) { orgv3.RegisterSourceServiceServer(s, fx.org) })
 	serve(t, itPartner, w, core.Partner, func(s *grpc.Server) {
 		p := &partnerStandIn{names: map[string]string{fx.sup: "上海供应商", fx.blocked: "暂停的供应商"},
@@ -160,6 +164,8 @@ func start(t *testing.T) *fixture {
 	serve(t, itInventory, w, core.Inventory, func(s *grpc.Server) { inventoryv3.RegisterStockServiceServer(s, fx.inv) })
 	fx.cost = &costingStandIn{limits: map[string]string{}}
 	serve(t, itCosting, w, core.Costing, func(s *grpc.Server) { costingv3.RegisterLayerServiceServer(s, fx.cost) })
+	fx.att = &attachmentStandIn{}
+	serve(t, itAttach, w, core.Attachment, func(s *grpc.Server) { attachmentv3.RegisterAttachmentServiceServer(s, fx.att) })
 	serve(t, itCurrency, w, core.Currency, func(s *grpc.Server) {
 		currencyv3.RegisterSourceServiceServer(s, currencyStandIn{})
 	})
@@ -187,7 +193,8 @@ func start(t *testing.T) *fixture {
 		"PG_OWNER_PASSWORD": pw, "BUS_URL": natsURL, "IMPLEMENTATION_INSTANCE": ids.New().String(),
 		"MDM_ORG_GRPC_ENDPOINT": "http://" + itOrg, "MDM_PARTNER_GRPC_ENDPOINT": "http://" + itPartner,
 		"MDM_PRODUCT_GRPC_ENDPOINT": "http://" + itProduct, "MDM_CURRENCY_GRPC_ENDPOINT": "http://" + itCurrency,
-		"ERP_INVENTORY_GRPC_ENDPOINT": "http://" + itInventory, "ERP_COSTING_GRPC_ENDPOINT": "http://" + itCosting} {
+		"ERP_INVENTORY_GRPC_ENDPOINT": "http://" + itInventory, "ERP_COSTING_GRPC_ENDPOINT": "http://" + itCosting,
+		"INFRA_ATTACHMENT_GRPC_ENDPOINT": "http://" + itAttach} {
 		env[k] = v
 	}
 	var logs bytes.Buffer

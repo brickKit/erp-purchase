@@ -14,6 +14,7 @@ import (
 	"github.com/brickKit/be-sdk-go/v3/errs"
 	"github.com/brickKit/be-sdk-go/v3/ids"
 	costingv3 "github.com/brickKit/erp-costing/contract/v3/gen/go/be/erp/costing/v3"
+	attachmentv3 "github.com/brickKit/infra-attachment/contract/v3/gen/go/be/attachment/v3"
 	inventoryv3 "github.com/brickKit/erp-inventory/contract/v3/gen/go/be/erp/inventory/v3"
 	currencyv3 "github.com/brickKit/mdm-currency/contract/v3/gen/go/be/mdm/currency/v3"
 	orgv3 "github.com/brickKit/mdm-org/contract/v3/gen/go/be/mdm/org/v3"
@@ -283,4 +284,105 @@ func (s *costingStandIn) ReturnLimit(_ context.Context, in *costingv3.ReturnLimi
 		return &costingv3.ReturnLimitResponse{}, nil
 	}
 	return &costingv3.ReturnLimitResponse{Known: true, Limited: true, Quantity: q}, nil
+}
+
+// --- infra/attachment: the owner's sessions and commands ---
+
+// attachmentStandIn answers infra/attachment's AttachmentService for the purchase orders: an upload session makes the
+// attachment available at once (the user's upload and confirmation are infra/attachment's, not the owner's), a
+// download of a normal category is an address and of a strict one a credential; every call is recorded.
+type attachmentStandIn struct {
+	attachmentv3.UnimplementedAttachmentServiceServer
+	mu    sync.Mutex
+	calls []attachmentCall
+	held  map[string][]*attachmentv3.Attachment // record → its attachments
+}
+
+type attachmentCall struct {
+	method, parent, record, attachment, user, date string
+}
+
+func (s *attachmentStandIn) record(c attachmentCall) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.calls = append(s.calls, c)
+}
+
+// last is the latest call of a method.
+func (s *attachmentStandIn) last(method string) attachmentCall {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := len(s.calls) - 1; i >= 0; i-- {
+		if s.calls[i].method == method {
+			return s.calls[i]
+		}
+	}
+	return attachmentCall{}
+}
+
+// find is the latest call of a method for a record, nil when there is none.
+func (s *attachmentStandIn) find(method, record string) *attachmentCall {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := len(s.calls) - 1; i >= 0; i-- {
+		if c := s.calls[i]; c.method == method && c.record == record {
+			return &c
+		}
+	}
+	return nil
+}
+
+func (s *attachmentStandIn) CreateUpload(_ context.Context, in *attachmentv3.CreateUploadRequest) (*attachmentv3.CreateUploadResponse, error) {
+	s.record(attachmentCall{method: "CreateUpload", parent: in.GetParent().GetResourceType(),
+		record: in.GetParent().GetRecordId(), user: in.GetUser()})
+	id := ids.New().String()
+	sens := "normal"
+	if in.GetCategory() == core.OrderInvoice {
+		sens = "strict"
+	}
+	s.mu.Lock()
+	if s.held == nil {
+		s.held = map[string][]*attachmentv3.Attachment{}
+	}
+	r := in.GetParent().GetRecordId()
+	s.held[r] = append(s.held[r], &attachmentv3.Attachment{Id: id, Category: in.GetCategory(), State: "available",
+		FileName: in.GetFileName(), Size: in.GetSize(), ContentType: in.GetContentType(), Version: 1, Unscanned: true,
+		CreatedAt: "2026-11-13T00:00:00.000000Z", Sensitivity: sens})
+	s.mu.Unlock()
+	return &attachmentv3.CreateUploadResponse{AttachmentId: id, Version: 1, UploadUrl: "http://store.invalid/staging/" + id,
+		ConfirmCredential: ids.New().String(), ExpiresAt: "2026-11-13T01:00:00.000000Z"}, nil
+}
+
+func (s *attachmentStandIn) List(_ context.Context, in *attachmentv3.ListRequest) (*attachmentv3.ListResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return &attachmentv3.ListResponse{Attachments: s.held[in.GetParent().GetRecordId()]}, nil
+}
+
+func (s *attachmentStandIn) IssueDownload(_ context.Context, in *attachmentv3.IssueDownloadRequest) (*attachmentv3.IssueDownloadResponse, error) {
+	s.record(attachmentCall{method: "IssueDownload", parent: in.GetParent().GetResourceType(),
+		record: in.GetParent().GetRecordId(), attachment: in.GetAttachmentId(), user: in.GetUser()})
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, a := range s.held[in.GetParent().GetRecordId()] {
+		if a.GetId() == in.GetAttachmentId() {
+			if a.GetSensitivity() == "strict" {
+				return &attachmentv3.IssueDownloadResponse{Credential: ids.New().String(), ExpiresAt: "2026-11-13T00:05:00.000000Z"}, nil
+			}
+			return &attachmentv3.IssueDownloadResponse{Url: "http://store.invalid/final/" + a.GetId(), ExpiresAt: "2026-11-13T00:05:00.000000Z"}, nil
+		}
+	}
+	return nil, errs.New(errs.ReasonNotFound, "attachment not found")
+}
+
+func (s *attachmentStandIn) Detach(_ context.Context, in *attachmentv3.DetachRequest) (*attachmentv3.DetachResponse, error) {
+	s.record(attachmentCall{method: "Detach", parent: in.GetParent().GetResourceType(), record: in.GetParent().GetRecordId(),
+		attachment: in.GetAttachmentId(), date: in.GetRetentionStart()})
+	return &attachmentv3.DetachResponse{Detached: 1}, nil
+}
+
+func (s *attachmentStandIn) SetRetentionStart(_ context.Context, in *attachmentv3.SetRetentionStartRequest) (*attachmentv3.SetRetentionStartResponse, error) {
+	s.record(attachmentCall{method: "SetRetentionStart", parent: in.GetParent().GetResourceType(),
+		record: in.GetParent().GetRecordId(), attachment: in.GetAttachmentId(), date: in.GetDate()})
+	return &attachmentv3.SetRetentionStartResponse{Set: 1}, nil
 }

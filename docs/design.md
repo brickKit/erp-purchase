@@ -120,6 +120,23 @@
 - **验收**：服务行的验收单在一个事务里写，发布验收事实（数量、金额、收货行参考取验收行身份），给财务的期末暂估与匹配。
 - **退货**（PO09）：退货单每行引用一条入库流水，在事务里建（`returning`），事务外逐行调库存的 `StockService.Return`（退货身份是退货行身份）；成功记退货出库流水、减已收、发布退货事实；拒绝记 `failed`；不明由恢复作业重发。
 
+## 附件
+
+订单的附件由 `infra/attachment` 保存，本组件是它们的属主（装配项目协议 12、决定 D68）：用户能不能加、能不能看由本组件按订单与类别的字段判断，再替用户向附件组件申请；附件组件从不回调本组件。
+
+| 类别 | 字段 | 敏感度 | 限制 | 保留类别 |
+| --- | --- | --- | --- | --- |
+| `erp.purchase.order_contract`（合同） | `contract_file` | 普通：下载给预签名地址 | 16 MiB；PDF、PNG、JPEG | `purchase_contract` |
+| `erp.purchase.order_invoice`（发票扫描件） | `invoice_scan`（读受限，要 `erp.purchase.order.read_invoice`） | 严格：下载给一次性凭证，在附件组件取字节 | 10 MiB；PDF、PNG、JPEG | `purchase_invoice` |
+
+类别声明在订单的资源定义里（安全 09a），附件组件从授权成员的类别目录取，本组件不登记到别处。
+
+- **上传**（订单的编辑权；发票扫描件另要它的读权限）：已取消、已关闭的订单不收附件；本组件申请上传会话，把上传地址与确认凭证交给前端，前端直传对象存储、到附件组件确认。
+- **列表与下载**（订单的读权限）：看不到发票扫描件的人列表里没有它们，下载与删除答 404；别的订单的附件答 404。
+- **删除**（订单的编辑权）：解除引用，附件组件里 30 天内可恢复。
+- **订单结束**（AI 定，待复核）：订单进入已取消、已完成、已关闭时，在同一事务里排一个工作项（`order-attachments-ended`），提交之后命令附件组件：取消的订单解除全部附件、以取消日为保留起算；完成与关闭以当天为保留起算（先完成再关闭的，起算移到关闭日，只会更长）。部署没有附件组件时什么也不做；附件组件还没有订单的类别目录（`DEFINITION_PENDING`）时工作项重试。
+- 保留年限由部署的 `ATTACHMENT_RETENTION` 给，本组件不定。
+
 ## 规则要点
 
 - 金额：行金额 = 数量 × 单价，按币种的小数位舍入（协议 14）；订单不含税。单价在订单上录入（价格表以后）。
@@ -145,6 +162,7 @@
 | 收货（带 `Idempotency-Key`）、收货单列表与读取 | 用户面 | `erp.purchase.receipt` 的 `erp.purchase.receipt.create`、`erp.purchase.receipt.read` |
 | 服务验收 | 用户面 | `erp.purchase.receipt.create`（验收与收货同一种执行权限） |
 | 采购退货（带 `Idempotency-Key`）、列表与读取 | 用户面 | `erp.purchase.return` 的 `erp.purchase.return.edit`、`erp.purchase.return.read` |
+| 订单附件的上传、列表、下载、删除（`/api/purchase/orders/{id}/attachments…`） | 用户面 | `erp.purchase.order.edit`（上传、删除）、`erp.purchase.order.read`（列表、下载）；发票扫描件另要 `erp.purchase.order.read_invoice` |
 | 采购政策的维护与读取 | 用户面 | `erp.purchase.policy` 的 `erp.purchase.policy.manage`、`erp.purchase.policy.read` |
 | 匹配依据（`MatchService.Basis`）；收货计价依据与验收事实按身份读取（`FactService.Read`） | 系统面 | `erp.purchase.system` 的 `erp.purchase.system.read` |
 | 预付申请、价格表、询价比价、返利、直运、寄售 | — | 以后（预付等 `erp/finance`） |
@@ -175,10 +193,13 @@
 | `erp/costing` | 可选 | 退货前的可退数量（PO09） | 退货只受收货流水限制 |
 | `mdm/employee` | 可选 | 审批人按岗位分配；职责分离以人为单位 | 政策只能用指定个人（配岗位的提交后任务暂停 `no_assignee`）；职责分离只能比较账号：同一个人的第二个账号能批自己提交的单据 |
 | `infra/audit` | 可选 | 审计 | 只写本地 |
+| `infra/attachment` | 可选 | 订单的附件（合同、发票扫描件） | 附件路由答“依赖不可用”；订单结束不命令什么 |
 
 下游：`erp/finance`（匹配依据、期末暂估；预付申请以后）、`erp/costing`（收货计价依据与入库流水）、`prj/project`（带项目参考的采购，只经事件，远期）。
 
 ## 实现状态
+
+3.0.15：订单的附件（装配项目阶段计划 C9 的 P6）：两个附件类别声明在订单的资源定义里，操作 `erp.purchase.order.read_invoice`；四个用户面路由；订单结束的工作项；可选依赖 `infra/attachment` 3.0.1；be-sdk-go alpha.130（全系统同一个 SDK 版本，SDK 加了存储端口与附件类别，线协议第 19 章）。
 
 3.0.14：be-sdk-go alpha.129（全系统同一个 SDK 版本；线协议 alpha.126：通知意图第 18 章一致性考试的修正，装配项目阶段计划 C8）及随之连锁的版本；本组件行为不变。
 

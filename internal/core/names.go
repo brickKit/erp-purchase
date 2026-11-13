@@ -21,6 +21,9 @@ const (
 	// Costing says how much of a receipt may go back before a purchase return (LayerService.ReturnLimit, protocol 05b);
 	// optional: without it nothing but the receipt movement limits a return.
 	Costing = "erp/costing"
+	// Attachment keeps the orders' attachments (assembly protocol 12; optional: without it the attachment routes answer
+	// the dependency unavailable)
+	Attachment = "infra/attachment"
 	// Employee is the source of the flow kernel's employee projection (who holds a position, the person behind an
 	// account); optional: without it an approver is a named principal and duties are separated by account.
 	Employee = "mdm/employee"
@@ -52,23 +55,25 @@ const (
 
 // Resources and operations (contract/openapi.yaml names each route's operation).
 const (
-	Requisitions    = "erp.purchase.requisition"
-	OpReqRead       = "erp.purchase.requisition.read"
-	OpReqEdit       = "erp.purchase.requisition.edit"
-	OpReqApprove    = "erp.purchase.requisition.approve"
-	Orders          = "erp.purchase.order"
-	OpOrderRead     = "erp.purchase.order.read"
-	OpOrderEdit     = "erp.purchase.order.edit"
-	OpOrderApprove  = "erp.purchase.order.approve"
-	Receipts        = "erp.purchase.receipt"
-	OpReceiptRead   = "erp.purchase.receipt.read"
-	OpReceiptCreate = "erp.purchase.receipt.create"
-	Returns         = "erp.purchase.return"
-	OpReturnRead    = "erp.purchase.return.read"
-	OpReturnEdit    = "erp.purchase.return.edit"
-	Policies        = "erp.purchase.policy"
-	OpPolicyRead    = "erp.purchase.policy.read"
-	OpPolicyManage  = "erp.purchase.policy.manage"
+	Requisitions   = "erp.purchase.requisition"
+	OpReqRead      = "erp.purchase.requisition.read"
+	OpReqEdit      = "erp.purchase.requisition.edit"
+	OpReqApprove   = "erp.purchase.requisition.approve"
+	Orders         = "erp.purchase.order"
+	OpOrderRead    = "erp.purchase.order.read"
+	OpOrderEdit    = "erp.purchase.order.edit"
+	OpOrderApprove = "erp.purchase.order.approve"
+	// OpOrderReadInvoice is the read of an order's invoice scans: the restricted field invoice_scan's read key
+	OpOrderReadInvoice = "erp.purchase.order.read_invoice"
+	Receipts           = "erp.purchase.receipt"
+	OpReceiptRead      = "erp.purchase.receipt.read"
+	OpReceiptCreate    = "erp.purchase.receipt.create"
+	Returns            = "erp.purchase.return"
+	OpReturnRead       = "erp.purchase.return.read"
+	OpReturnEdit       = "erp.purchase.return.edit"
+	Policies           = "erp.purchase.policy"
+	OpPolicyRead       = "erp.purchase.policy.read"
+	OpPolicyManage     = "erp.purchase.policy.manage"
 	// Flows is the approval tasks' resource: the flow kernel's standard routes are registered with OpFlowDecide (a
 	// decision itself needs its flow's approve operation); OpFlowManage lists the paused tasks.
 	Flows        = "erp.purchase.flow"
@@ -144,6 +149,42 @@ var ReceiptFields = []string{"id", "number", "order_id", "order_revision", "lega
 var ReturnFields = []string{"id", "number", "order_id", "legal_entity_id", "reason", "business_date", "lines", "version",
 	"updated_at", "created_at"}
 
+// JobOrderEnded is the work item an order's end queues in its transaction (cancelled, completed, closed): the attachments
+// module commands infra/attachment (D68: the owner commands, after the change commits).
+const JobOrderEnded = "order-attachments-ended"
+
+// OrderEnded is JobOrderEnded's arguments: the order, the state it ended in and the date (UTC) the attachments'
+// retention counts from.
+type OrderEnded struct {
+	OrderID string `json:"order_id"`
+	State   string `json:"state"`
+	Date    string `json:"date"`
+}
+
+// The orders' attachment categories (assembly protocol 12): each named after the field the owner judges it by.
+const (
+	OrderContract = "erp.purchase.order_contract" // the field contract_file: normal
+	OrderInvoice  = "erp.purchase.order_invoice"  // the field invoice_scan: strict, its read restricted
+)
+
+// OrderAttachments are the orders' attachment categories (security 09a; infra/attachment takes them from the
+// authorization member's catalog). No SVG, no HTML: what is shown in a browser is a PDF or an image.
+var OrderAttachments = map[string]sdkauthz.AttachmentCategory{
+	OrderContract: {Field: "contract_file", MaxBytes: 16 << 20, AllowedTypes: []string{"application/pdf", "image/png", "image/jpeg"},
+		Sensitivity: sdkauthz.Normal, RetentionClass: "purchase_contract", Version: "1"},
+	OrderInvoice: {Field: "invoice_scan", MaxBytes: 10 << 20, AllowedTypes: []string{"application/pdf", "image/png", "image/jpeg"},
+		Sensitivity: sdkauthz.Strict, RetentionClass: "purchase_invoice", Version: "1"},
+}
+
+// orderFields are the order's output fields with its attachment fields: contract_file ordinary, invoice_scan
+// restricted (read with OpOrderReadInvoice).
+func orderFields() map[string]sdkauthz.Field {
+	f := fields(OrderFields...)
+	f["contract_file"] = sdkauthz.Field{Class: sdkauthz.Ordinary}
+	f["invoice_scan"] = sdkauthz.Field{Class: sdkauthz.Restricted, ReadKey: OpOrderReadInvoice}
+	return f
+}
+
 // OrderFields are what an order list may filter and sort on.
 var OrderFields = []string{"id", "number", "legal_entity_id", "supplier_id", "supplier", "currency", "business_date",
 	"owner_id", "department_id", "state", "revision", "total", "submitted_by", "approved_by", "reason", "lines",
@@ -161,7 +202,8 @@ func Definitions() *sdkauthz.Definitions {
 	return &sdkauthz.Definitions{Component: ID,
 		Resources: []sdkauthz.Resource{
 			{Type: Requisitions, ViewOperation: OpReqRead, Dimensions: scoped("requester_id"), Fields: fields(RequisitionFields...)},
-			{Type: Orders, ViewOperation: OpOrderRead, Dimensions: scoped("owner_id"), Fields: fields(OrderFields...)},
+			{Type: Orders, ViewOperation: OpOrderRead, Dimensions: scoped("owner_id"), Fields: orderFields(),
+				AttachmentCategories: OrderAttachments},
 			{Type: Receipts, ViewOperation: OpReceiptRead, Dimensions: scoped("owner_id"), Fields: fields(ReceiptFields...)},
 			{Type: Returns, ViewOperation: OpReturnRead, Dimensions: scoped("owner_id"), Fields: fields(ReturnFields...)},
 			{Type: Policies, ViewOperation: OpPolicyRead,
@@ -180,6 +222,7 @@ func Definitions() *sdkauthz.Definitions {
 			low(OpOrderRead, Orders, "read", false),
 			low(OpOrderEdit, Orders, "manage", true),
 			low(OpOrderApprove, Orders, "action", true),
+			low(OpOrderReadInvoice, Orders, "read", true),
 			low(OpReceiptRead, Receipts, "read", false),
 			low(OpReceiptCreate, Receipts, "create", true),
 			low(OpReturnRead, Returns, "read", false),

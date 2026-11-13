@@ -5,6 +5,7 @@ import (
 	"time"
 
 	acceptances "github.com/brickKit/erp-purchase/v3/internal/acceptances"
+	attachments "github.com/brickKit/erp-purchase/v3/internal/attachments"
 	core "github.com/brickKit/erp-purchase/v3/internal/core"
 	orders "github.com/brickKit/erp-purchase/v3/internal/orders"
 	orgunits "github.com/brickKit/erp-purchase/v3/internal/orgunits"
@@ -105,6 +106,11 @@ func (m *Module) Routes(r *httpx.Routes) error {
 	add("POST", "/api/purchase/orders/:id/revise", core.OpOrderEdit, h(orders.ReviseOrder))
 	add("POST", "/api/purchase/orders/:id/close", core.OpOrderEdit, orders.Action(m.b, orders.Close))
 	add("POST", "/api/purchase/orders/:id/cancel", core.OpOrderEdit, orders.Action(m.b, orders.Cancel))
+	// the orders' attachments, kept by infra/attachment (assembly protocol 12)
+	add("POST", "/api/purchase/orders/:id/attachments", core.OpOrderEdit, h(attachments.Upload))
+	add("GET", "/api/purchase/orders/:id/attachments", core.OpOrderRead, h(attachments.List))
+	add("POST", "/api/purchase/orders/:id/attachments/:aid/download", core.OpOrderRead, h(attachments.Download))
+	add("DELETE", "/api/purchase/orders/:id/attachments/:aid", core.OpOrderEdit, h(attachments.Remove))
 	r.Add(httpx.Route{Method: "POST", Path: "/api/purchase/orders/:id/receipts", Operation: core.OpReceiptCreate,
 		Orchestration: true, Handle: h(receipts.CreateReceipt)})
 	add("GET", "/api/purchase/receipts", core.OpReceiptRead, h(receipts.ListReceipts))
@@ -158,6 +164,9 @@ func (m *Module) Jobs(j *work.Jobs) error {
 		MaxAttempts: work.Unlimited, Handle: m.job(orgunits.RepairOrgUnits)})
 	j.Add(work.Job{Name: orgunits.JobRealignOrgUnits, Kind: work.Queue, Effect: work.IdempotentExternal,
 		MaxAttempts: work.Unlimited, Handle: m.job(orgunits.RealignOrgUnits)})
+	// an order's end commanded to infra/attachment once it commits (D68)
+	j.Add(work.Job{Name: core.JobOrderEnded, Kind: work.Queue, Effect: work.IdempotentExternal, MaxAttempts: work.Unlimited,
+		Handle: m.job(attachments.Ended)})
 	m.b.Flow.Jobs(j) // paused approval tasks resolved again; the heartbeat
 	return nil
 }

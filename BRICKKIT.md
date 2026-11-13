@@ -9,6 +9,7 @@
 - **收货**：经库存的系统面入库，收货行的身份是给库存与成本的收货行参考；已收数量只以库存的入库流水为准（应答丢了，按库存的流水事件补齐）；超过法人政策的超收比例整笔拒绝。
 - **服务验收与采购退货**：服务行按数量或金额验收；退货引用一条入库流水，至多退回它收进的。
 - **给下游的**：收货计价依据（给成本暂估）、验收与退货事实；匹配依据（给财务的三单匹配与期末暂估）。
+- **附件**：订单的合同与发票扫描件由 `infra/attachment` 保存，本组件是属主：按订单与类别的字段判断用户能不能加、能不能看，再替用户申请上传与下载；订单取消、完成、关闭时命令附件组件解除引用或设置保留起算。
 - **数据范围**：申请、订单、收货、验收、退货带法人、部门（组织树）与负责人三个维度。
 
 库存余额（`erp/inventory`）、供应商票据与应付（`erp/finance`）、存货成本（`erp/costing`）、付款不在这里。本版答“能力不支持”（`CAPABILITY_UNSUPPORTED`，D75）的：预付申请、供应商价格表、询价与比价、返利、税额、预算占用、框架协议、直运、寄售。
@@ -21,12 +22,13 @@
 - 依赖 `mdm/org`、`mdm/partner`、`mdm/product`、`mdm/currency`，经它们的系统面读取；库存是可选的。
 - 审批：每个要审批的法人在采购政策里配审批人，没配时提交答 409 `NO_APPROVER_CONFIGURED`。按岗位审批要装 `mdm/employee`（本组件补取它的流 `mdm.employee` 并读快照，投影任职与账号关联）；**没装员工组件时**，政策只能用指定个人（配了岗位的任务暂停 `no_assignee`），职责分离只能比较账号：同一个人用第二个账号能批准自己提交的单据（线协议 P17.12），部署方要接受这一风险或装员工组件。
 - 任务暂停（岗位上没人、员工投影不完整）时记一条告警日志（`event=flow_no_assignee`），有 `erp.purchase.flow.manage` 的人在 `GET /be/flow/tasks?state=paused` 看到；员工投影变化后每分钟重新解析。
+- 附件（装了 `infra/attachment` 时）：订单的两个附件类别声明在订单的资源定义里，附件组件从授权成员的类别目录取，不用另配；`ATTACHMENT_RETENTION` 要给保留类别 `purchase_contract`、`purchase_invoice` 的年限（在附件组件上配，没给的不清除）。看发票扫描件的人另要授予 `erp.purchase.order.read_invoice`。
 - 交易中心之一：负载高时单跑（协议 17）。
 
 ## 依赖说明
 
 - 必需：数据库、消息系统、身份成员、授权成员、`mdm/org`、`mdm/partner`、`mdm/product`、`mdm/currency`。
-- 可选：`erp/inventory`（缺时库存物资行不能收货与退货，答“依赖不可用”；只有服务行的订单照常）；`mdm/employee`（审批人按岗位、职责分离以人为单位；缺时见部署前准备）；`erp/costing`（退货前问可退数量，先进先出时超过成本层在库的拒绝；缺席或不答复时退货只受收货流水限制）；审计组件。
+- 可选：`erp/inventory`（缺时库存物资行不能收货与退货，答“依赖不可用”；只有服务行的订单照常）；`mdm/employee`（审批人按岗位、职责分离以人为单位；缺时见部署前准备）；`erp/costing`（退货前问可退数量，先进先出时超过成本层在库的拒绝；缺席或不答复时退货只受收货流水限制）；审计组件；`infra/attachment`（缺时附件路由答“依赖不可用”）。
 - 库存在收货或退货时不答复：收货单或退货行停在“收货中”“退货中”（用户面答 202），工作项按同一身份重发直到库存答复；库存的流水事件也会补齐收货。收货中的订单不能关闭、不能取消。
 - 主数据不可达时：新建、修改、提交答“依赖不可用”，已有数据照常读取。
 
@@ -41,12 +43,12 @@
 | `BUS_URL`（必填，密钥）、`IMPLEMENTATION_INSTANCE`（必填） | 消息系统；实现实例是安装时生成的随机身份 |
 | `AUDIT_GRPC_URL` | 审计组件的系统面；缺时审计记录留在本地，按协议 03 处理 |
 
-依赖的地址由 BrickKit 按依赖注入（`MDM_ORG_GRPC_ENDPOINT`、`MDM_PARTNER_GRPC_ENDPOINT`、`MDM_PRODUCT_GRPC_ENDPOINT`、`MDM_CURRENCY_GRPC_ENDPOINT`，装了时还有 `ERP_INVENTORY_GRPC_ENDPOINT`、`ERP_COSTING_GRPC_ENDPOINT`、`MDM_EMPLOYEE_GRPC_ENDPOINT`），不是配置键。单号格式 `<前缀>-<法人代码>-<年>-<六位序号>`（前缀 `PR`、`PO`、`GR`、`SA`、`RT`）本版固定；要不要审批、审批人、超收比例是按法人的采购政策，经用户面维护（改审批人只影响之后提交的单据）。
+依赖的地址由 BrickKit 按依赖注入（`MDM_ORG_GRPC_ENDPOINT`、`MDM_PARTNER_GRPC_ENDPOINT`、`MDM_PRODUCT_GRPC_ENDPOINT`、`MDM_CURRENCY_GRPC_ENDPOINT`，装了时还有 `ERP_INVENTORY_GRPC_ENDPOINT`、`ERP_COSTING_GRPC_ENDPOINT`、`MDM_EMPLOYEE_GRPC_ENDPOINT`、`INFRA_ATTACHMENT_GRPC_ENDPOINT`），不是配置键。单号格式 `<前缀>-<法人代码>-<年>-<六位序号>`（前缀 `PR`、`PO`、`GR`、`SA`、`RT`）本版固定；要不要审批、审批人、超收比例是按法人的采购政策，经用户面维护（改审批人只影响之后提交的单据）。
 
 ## 契约索引
 
 - **系统面**（本仓库 `contract/proto`，模块 `github.com/brickKit/erp-purchase/contract/v3`，标签 `contract/v3.…`）：`be.erp.purchase.v3.MatchService/Basis`（订单行的订购（订单单位与基本单位）、已收（按流水，净额）、已验收；只对 `erp/finance` 开放）、`be.erp.purchase.v3.FactService/Read`（增量事实按身份补取；任一组件）；操作 `erp.purchase.system.read`。整套恢复的核对（`be.recovery.v1.CheckService`）答申请、订单、收货（含验收）、退货、政策的“还在不在”。
-- **用户面**：`contract/openapi.yaml`。操作 `erp.purchase.requisition.read`、`erp.purchase.requisition.edit`、`erp.purchase.requisition.approve`、`erp.purchase.order.read`、`erp.purchase.order.edit`、`erp.purchase.order.approve`、`erp.purchase.receipt.read`、`erp.purchase.receipt.create`、`erp.purchase.return.read`、`erp.purchase.return.edit`、`erp.purchase.policy.read`、`erp.purchase.policy.manage`、`erp.purchase.flow.decide`、`erp.purchase.flow.manage`；单据带法人、部门、负责人三个维度，采购政策带法人维度。审批任务的标准路由由 SDK 登记、条款在线协议第 17 章：`POST /be/flow/tasks/{id}/decisions`（要 `Idempotency-Key`；决定要任务所属流程的批准操作）、`GET /be/flow/tasks/{id}`、`GET /be/flow/tasks?state=paused`（要 `erp.purchase.flow.manage`）；原来的 `approve`、`reject` 路由按单据找到调用者的任务再作决定（`Idempotency-Key` 可选）。决定被拒按线协议的原因答（`SELF_APPROVAL`、`NOT_ASSIGNEE`、`TASK_NOT_PENDING`、`VERSION_CONFLICT`、`NOT_QUALIFIED`、`QUALIFICATION_UNKNOWN`、`REVISION_CHANGED`）；放行核对不过答 409 `NOT_RELEASED`。新建、收货、验收、退货要带 `Idempotency-Key`。收货被库存拒绝答 409 `RECEIPT_FAILED`，收货单身份在问题的 `metadata.receipt_id`；超收答 `OVER_RECEIPT`，退货超出流水的可退答 `RETURN_EXCEEDS_RECEIPT`，超过成本层在库的（成本组件按先进先出）答 `RETURN_EXCEEDS_COST_LAYER`。
+- **用户面**：`contract/openapi.yaml`。操作 `erp.purchase.requisition.read`、`erp.purchase.requisition.edit`、`erp.purchase.requisition.approve`、`erp.purchase.order.read`、`erp.purchase.order.edit`、`erp.purchase.order.approve`、`erp.purchase.order.read_invoice`、`erp.purchase.receipt.read`、`erp.purchase.receipt.create`、`erp.purchase.return.read`、`erp.purchase.return.edit`、`erp.purchase.policy.read`、`erp.purchase.policy.manage`、`erp.purchase.flow.decide`、`erp.purchase.flow.manage`；单据带法人、部门、负责人三个维度，采购政策带法人维度。审批任务的标准路由由 SDK 登记、条款在线协议第 17 章：`POST /be/flow/tasks/{id}/decisions`（要 `Idempotency-Key`；决定要任务所属流程的批准操作）、`GET /be/flow/tasks/{id}`、`GET /be/flow/tasks?state=paused`（要 `erp.purchase.flow.manage`）；原来的 `approve`、`reject` 路由按单据找到调用者的任务再作决定（`Idempotency-Key` 可选）。决定被拒按线协议的原因答（`SELF_APPROVAL`、`NOT_ASSIGNEE`、`TASK_NOT_PENDING`、`VERSION_CONFLICT`、`NOT_QUALIFIED`、`QUALIFICATION_UNKNOWN`、`REVISION_CHANGED`）；放行核对不过答 409 `NOT_RELEASED`。新建、收货、验收、退货要带 `Idempotency-Key`。订单附件：`POST /api/purchase/orders/{id}/attachments`（上传会话：上传地址、确认凭证与附件组件的确认路径）、`GET …/attachments`、`POST …/attachments/{aid}/download`（普通类别给地址，严格类别给凭证与附件组件的下载路径）、`DELETE …/attachments/{aid}`；附件类别 `erp.purchase.order_contract`（普通）、`erp.purchase.order_invoice`（严格，读要 `erp.purchase.order.read_invoice`）。收货被库存拒绝答 409 `RECEIPT_FAILED`，收货单身份在问题的 `metadata.receipt_id`；超收答 `OVER_RECEIPT`，退货超出流水的可退答 `RETURN_EXCEEDS_RECEIPT`，超过成本层在库的（成本组件按先进先出）答 `RETURN_EXCEEDS_COST_LAYER`。
 - **事件**（流 `erp.purchase`，schema 在 `contract/events/`）：`erp.purchase_requisition.changed.v1`、`erp.purchase_order.changed.v1`、`erp.purchase_receipt.changed.v1`、`erp.purchase_return.changed.v1`（完整状态），`erp.purchase_receipt.valuation_basis.v1`、`erp.purchase_receipt.valuation_basis_withdrawn.v1`、`erp.purchase_acceptance.recorded.v1`、`erp.purchase_return.posted.v1`（增量事实，按 `fact_id` 去重）；审批任务 `erp.purchase_task.changed.v1`（线协议的共享任务契约 `schemas/flow/task.v1`，按版本覆盖；任务类型 `erp.purchase.order.approval`、`erp.purchase.requisition.approval`）与心跳 `erp.purchase_task.heartbeat.v1`（有待处理或暂停的任务时每 5 分钟）；审批待办的通知意图 `erp.purchase_notification.intent.v1`（线协议的共享意图契约 `schemas/notification/intent.v1`：任务待处理时发给候选处理人，离开待处理时撤回；部署把本组件列为 `infra/notification` 的发送方时它收）。订阅 `mdm/org` 部门的全部事件（`mdm.org_unit.>`）与 `erp/inventory` 的流水事件 `erp.inventory_movement.recorded.v1`（流 `erp.inventory`，只取采购收货的入库）；装了 `mdm/employee` 时它的流 `mdm.employee`（任职、账号关联、员工）。
 
 ## 外壳声明

@@ -8,6 +8,7 @@
 
 | 包 | 一句话 | 依赖（本组件内） |
 | --- | --- | --- |
+| `attachments` | 订单的附件：替用户向 `infra/attachment` 申请上传、列表、下载与解除引用；订单结束的命令 | `core`、`orders` |
 | `receipts` | 收货：经库存入库、收货计价依据与撤回、按库存的流水补齐已收、重发的工作项 | `core`、`masterdata`、`orders`、`policies` |
 | `acceptances` | 服务验收：按数量或金额、验收事实 | `core`、`masterdata`、`orders`、`policies` |
 | `returns` | 采购退货：按收货流水的可退扣减、逐行经库存出库、重发的工作项 | `core`、`masterdata`、`orders` |
@@ -24,7 +25,7 @@
 
 | 层 | 包 |
 | --- | --- |
-| 6 | `receipts`、`acceptances`、`returns` |
+| 6 | `receipts`、`acceptances`、`returns`、`attachments` |
 | 5 | `orders` |
 | 4 | `requisitions` |
 | 3 | `orgunits` |

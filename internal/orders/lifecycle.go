@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"time"
 
 	core "github.com/brickKit/erp-purchase/v3/internal/core"
 
@@ -196,7 +197,16 @@ func Transition(m *core.Base, ctx context.Context, tx db.Tx, o Order, d core.Dec
 		return o, fmt.Errorf("orders: %s is no longer %s", o.ID, o.State)
 	}
 	after, err := Emit(m, ctx, tx, o.ID)
-	if err != nil || d.Op == "" {
+	if err != nil {
+		return after, err
+	}
+	if (d.To == Cancelled || d.To == Completed || d.To == Closed) && m.RT.Work != nil { // the attachments' end (D68)
+		if _, err := m.RT.Work.Enqueue(ctx, tx, core.JobOrderEnded, core.OrderEnded{OrderID: o.ID, State: d.To,
+			Date: time.Now().UTC().Format(time.DateOnly)}); err != nil {
+			return after, err
+		}
+	}
+	if d.Op == "" {
 		return after, err
 	}
 	return after, core.Change(m, ctx, tx, actor, d.Op, core.Orders, o.ID, after)

@@ -3,11 +3,12 @@ module github.com/brickKit/erp-purchase/v3
 go 1.27.0
 
 require (
-	github.com/brickKit/be-protocol/v3 v3.0.0-alpha.126
-	github.com/brickKit/be-sdk-go/v3 v3.0.0-alpha.129
+	github.com/brickKit/be-protocol/v3 v3.0.0-alpha.127
+	github.com/brickKit/be-sdk-go/v3 v3.0.0-alpha.130
 	github.com/brickKit/erp-costing/contract/v3 v3.0.0-alpha.2
 	github.com/brickKit/erp-inventory/contract/v3 v3.0.0-alpha.2
 	github.com/brickKit/erp-purchase/contract/v3 v3.0.0-alpha.4
+	github.com/brickKit/infra-attachment/contract/v3 v3.0.0-alpha.1
 	github.com/brickKit/mdm-currency/contract/v3 v3.0.0-alpha.2
 	github.com/brickKit/mdm-org/contract/v3 v3.0.0-alpha.3
 	github.com/brickKit/mdm-partner/contract/v3 v3.0.0-alpha.3
@@ -25,7 +26,7 @@ require (
 	github.com/MicahParks/keyfunc/v3 v3.8.2 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/brickKit/contract-infra-authz/v3 v3.0.0-alpha.6 // indirect
+	github.com/brickKit/contract-infra-authz/v3 v3.0.0-alpha.7 // indirect
 	github.com/brickKit/infra-audit/contract/v3 v3.0.0-alpha.2 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect

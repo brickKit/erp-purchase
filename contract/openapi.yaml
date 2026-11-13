@@ -140,6 +140,102 @@ paths:
   /api/purchase/orders/{id}/cancel:
     parameters: [{$ref: '#/components/parameters/id'}]
     post: {operationId: cancelOrder, x-operation: erp.purchase.order.edit, summary: 'Cancel a draft or submitted order, or an approved one with nothing received or accepted (PO11)', requestBody: {content: {application/json: {schema: {$ref: '#/components/schemas/Versioned'}}}}, responses: {'200': {description: the order, content: {application/json: {schema: {$ref: '#/components/schemas/Order'}}}}, default: {$ref: '#/components/responses/problem'}}}
+  /api/purchase/orders/{id}/attachments:
+    parameters: [{$ref: '#/components/parameters/id'}]
+    post:
+      operationId: requestAttachmentUpload
+      x-operation: erp.purchase.order.edit
+      summary: Ask infra/attachment for an upload session of a contract or an invoice scan (not on a cancelled or closed order; an invoice scan needs its field's read too)
+      description: >-
+        The user then PUTs the file to upload_url with exactly the size and type given, and confirms at the attachment
+        component (confirm.component, confirm.path) with confirm_credential. 503 DEPENDENCY_UNAVAILABLE without one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [file_name, size, content_type]
+              properties:
+                category: {enum: [erp.purchase.order_contract, erp.purchase.order_invoice]}
+                file_name: {type: string}
+                size: {type: integer, minimum: 1}
+                content_type: {type: string}
+                replace_attachment_id: {type: string, format: uuid, description: 'a new content version of this attachment'}
+      responses:
+        '200':
+          description: the upload session
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [attachment_id, version, upload_url, confirm_credential, expires_at, confirm]
+                properties:
+                  attachment_id: {type: string, format: uuid}
+                  version: {type: integer}
+                  upload_url: {type: string}
+                  confirm_credential: {type: string}
+                  expires_at: {type: string, format: date-time}
+                  confirm: {$ref: '#/components/schemas/AttachmentEntry'}
+        default: {$ref: '#/components/responses/problem'}
+    get:
+      operationId: listAttachments
+      x-operation: erp.purchase.order.read
+      summary: The order's attachments the caller may read (the invoice scans only with their field's read)
+      responses:
+        '200':
+          description: the attachments
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [attachments]
+                properties:
+                  attachments:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, category, state, file_name, size, content_type, version, unscanned, created_at]
+                      properties:
+                        id: {type: string, format: uuid}
+                        category: {type: string}
+                        state: {type: string}
+                        file_name: {type: string}
+                        size: {type: integer}
+                        content_type: {type: string}
+                        version: {type: integer}
+                        unscanned: {type: boolean}
+                        created_at: {type: string, format: date-time}
+        default: {$ref: '#/components/responses/problem'}
+  /api/purchase/orders/{id}/attachments/{aid}/download:
+    parameters: [{$ref: '#/components/parameters/id'}, {name: aid, in: path, required: true, schema: {type: string, format: uuid}}]
+    post:
+      operationId: requestAttachmentDownload
+      x-operation: erp.purchase.order.read
+      summary: Ask infra/attachment for the caller's download (a presigned url for a contract, a one-time credential for an invoice scan)
+      responses:
+        '200':
+          description: one of url, or credential with where to present it
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [expires_at]
+                properties:
+                  url: {type: string}
+                  credential: {type: string}
+                  download: {$ref: '#/components/schemas/AttachmentEntry'}
+                  expires_at: {type: string, format: date-time}
+        default: {$ref: '#/components/responses/problem'}
+  /api/purchase/orders/{id}/attachments/{aid}:
+    parameters: [{$ref: '#/components/parameters/id'}, {name: aid, in: path, required: true, schema: {type: string, format: uuid}}]
+    delete:
+      operationId: removeAttachment
+      x-operation: erp.purchase.order.edit
+      summary: Take an attachment off the order (detached at infra/attachment; restorable there within its grace period)
+      responses:
+        '204': {description: detached}
+        default: {$ref: '#/components/responses/problem'}
   /api/purchase/orders/{id}/prepayments:
     parameters: [{$ref: '#/components/parameters/id'}]
     post: {operationId: requestPrepayment, x-operation: erp.purchase.order.edit, summary: 'Ask erp/finance for a prepayment (protocol 05); not in this version: CAPABILITY_UNSUPPORTED', responses: {default: {$ref: '#/components/responses/problem'}}}
@@ -257,6 +353,7 @@ components:
             required: [reason]
             properties: {reason: {type: string}, detail: {type: string}}
   schemas:
+    AttachmentEntry: {type: object, required: [component, path], properties: {component: {type: string}, path: {type: string}}, description: 'where on infra/attachment the user presents the credential'}
     Decimal: {type: string, pattern: '^[0-9]+(\.[0-9]+)?$', description: a decimal string}
     Versioned:
       type: object
